@@ -7,17 +7,21 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
 import { Bike, Fuel, Wrench, Plus, Gauge, Edit3 } from 'lucide-react-native';
 import { dbService } from '../../database/db';
 import { Bike as BikeType, FuelLog, Maintenance } from '../../utils/mockData';
 import { FuelCard } from '../../components/FuelCard';
 import { MaintenanceCard } from '../../components/MaintenanceCard';
+import { EmptyState } from '../../components/EmptyState';
+import { CardSkeleton } from '../../components/SkeletonLoader';
 import { useFocusEffect, Stack } from 'expo-router';
 import { useSettings } from '../../context/SettingsContext';
 
 export default function GarageScreen() {
   const { settings, theme } = useSettings();
+  const [loading, setLoading] = useState(true);
   const [bikes, setBikes] = useState<BikeType[]>([]);
   const [activeBike, setActiveBike] = useState<BikeType | null>(null);
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
@@ -29,14 +33,30 @@ export default function GarageScreen() {
   const [showMaintModal, setShowMaintModal] = useState(false);
   const [showEditBikeModal, setShowEditBikeModal] = useState(false);
 
-  // Form states for Fuel & Maintenance
+  // Edit Modals state
+  const [editingFuel, setEditingFuel] = useState<FuelLog | null>(null);
+  const [editingMaint, setEditingMaint] = useState<Maintenance | null>(null);
+
+  // Form states for Add Fuel & Maintenance
   const [fuelLiters, setFuelLiters] = useState('');
   const [fuelCost, setFuelCost] = useState('');
   const [maintType, setMaintType] = useState('Engine Oil');
   const [maintDesc, setMaintDesc] = useState('');
   const [maintInterval, setMaintInterval] = useState('2000');
 
-  // Form states for Editing Bike Profile
+  // Form states for Edit Fuel
+  const [editFuelLiters, setEditFuelLiters] = useState('');
+  const [editFuelCost, setEditFuelCost] = useState('');
+  const [editFuelOdo, setEditFuelOdo] = useState('');
+  const [editFuelNotes, setEditFuelNotes] = useState('');
+
+  // Form states for Edit Maintenance
+  const [editMaintType, setEditMaintType] = useState('');
+  const [editMaintDesc, setEditMaintDesc] = useState('');
+  const [editMaintOdo, setEditMaintOdo] = useState('');
+  const [editMaintNextOdo, setEditMaintNextOdo] = useState('');
+
+  // Form states for Editing/Adding Bike Profile
   const [bikeName, setBikeName] = useState('');
   const [bikeMake, setBikeMake] = useState('');
   const [bikeModel, setBikeModel] = useState('');
@@ -44,15 +64,23 @@ export default function GarageScreen() {
   const [bikeOdo, setBikeOdo] = useState('');
 
   const loadGarage = async () => {
-    const bikesData = await dbService.getBikes();
-    setBikes(bikesData);
-    if (bikesData.length > 0) setActiveBike(bikesData[0]);
+    try {
+      const bikesData = await dbService.getBikes();
+      setBikes(bikesData);
+      if (bikesData.length > 0) {
+        setActiveBike(bikesData[0]);
+      } else {
+        setActiveBike(null);
+      }
 
-    const fuelData = await dbService.getFuelLogs();
-    setFuelLogs(fuelData);
+      const fuelData = await dbService.getFuelLogs();
+      setFuelLogs(fuelData);
 
-    const maintData = await dbService.getMaintenanceLogs();
-    setMaintenance(maintData);
+      const maintData = await dbService.getMaintenanceLogs();
+      setMaintenance(maintData);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useFocusEffect(
@@ -61,37 +89,44 @@ export default function GarageScreen() {
     }, [])
   );
 
-  const openEditBikeModal = () => {
-    if (!activeBike) return;
-    setBikeName(activeBike.name);
-    setBikeMake(activeBike.make);
-    setBikeModel(activeBike.model);
-    setBikeYear(activeBike.year.toString());
-    setBikeOdo(activeBike.current_odometer.toString());
+  const openAddOrEditBikeModal = () => {
+    if (activeBike) {
+      setBikeName(activeBike.name);
+      setBikeMake(activeBike.make);
+      setBikeModel(activeBike.model);
+      setBikeYear(activeBike.year.toString());
+      setBikeOdo(activeBike.current_odometer.toString());
+    } else {
+      setBikeName('');
+      setBikeMake('');
+      setBikeModel('');
+      setBikeYear(new Date().getFullYear().toString());
+      setBikeOdo('0');
+    }
     setShowEditBikeModal(true);
   };
 
   const handleSaveBike = async () => {
-    if (!activeBike) return;
     await dbService.saveBike({
-      id: activeBike.id,
-      name: bikeName.trim() || activeBike.name,
-      make: bikeMake.trim() || activeBike.make,
-      model: bikeModel.trim() || activeBike.model,
-      year: parseInt(bikeYear, 10) || activeBike.year,
-      current_odometer: parseFloat(bikeOdo) || activeBike.current_odometer,
+      id: activeBike ? activeBike.id : undefined,
+      name: bikeName.trim() || 'My Motorcycle',
+      make: bikeMake.trim() || 'Motorcycle',
+      model: bikeModel.trim() || 'Standard',
+      year: parseInt(bikeYear, 10) || new Date().getFullYear(),
+      initial_odometer: parseFloat(bikeOdo) || 0,
+      current_odometer: parseFloat(bikeOdo) || 0,
     });
     setShowEditBikeModal(false);
     loadGarage();
   };
 
   const handleAddFuel = async () => {
-    if (!fuelLiters || !fuelCost || !activeBike) return;
+    if (!fuelLiters || !fuelCost) return;
     const liters = parseFloat(fuelLiters);
     const cost = parseFloat(fuelCost);
     await dbService.addFuelLog({
-      bike_id: activeBike.id,
-      odometer_km: activeBike.current_odometer,
+      bike_id: activeBike ? activeBike.id : 1,
+      odometer_km: activeBike ? activeBike.current_odometer : 0,
       liters,
       cost,
       price_per_liter: cost / liters,
@@ -103,19 +138,102 @@ export default function GarageScreen() {
     loadGarage();
   };
 
+  const handleOpenEditFuel = (log: FuelLog) => {
+    setEditingFuel(log);
+    setEditFuelLiters(log.liters.toString());
+    setEditFuelCost(log.cost.toString());
+    setEditFuelOdo(log.odometer_km.toString());
+    setEditFuelNotes(log.notes || '');
+  };
+
+  const handleSaveEditFuel = async () => {
+    if (!editingFuel) return;
+    const liters = parseFloat(editFuelLiters) || editingFuel.liters;
+    const cost = parseFloat(editFuelCost) || editingFuel.cost;
+    const odo = parseFloat(editFuelOdo) || editingFuel.odometer_km;
+    await dbService.updateFuelLog({
+      id: editingFuel.id,
+      liters,
+      cost,
+      price_per_liter: liters > 0 ? cost / liters : 0,
+      odometer_km: odo,
+      notes: editFuelNotes,
+    });
+    setEditingFuel(null);
+    loadGarage();
+  };
+
+  const handleDeleteFuel = (id: number) => {
+    Alert.alert(
+      'Delete Fuel Log',
+      'Are you sure you want to delete this fill-up log?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await dbService.deleteFuelLog(id);
+            loadGarage();
+          },
+        },
+      ]
+    );
+  };
+
   const handleAddMaintenance = async () => {
-    if (!maintType || !activeBike) return;
+    if (!maintType) return;
     const interval = parseFloat(maintInterval) || 2000;
+    const odo = activeBike ? activeBike.current_odometer : 0;
     await dbService.addMaintenanceLog({
-      bike_id: activeBike.id,
+      bike_id: activeBike ? activeBike.id : 1,
       type: maintType,
       description: maintDesc || `${maintType} completed.`,
-      odometer_km: activeBike.current_odometer,
-      next_service_km: activeBike.current_odometer + interval,
+      odometer_km: odo,
+      next_service_km: odo + interval,
     });
     setMaintDesc('');
     setShowMaintModal(false);
     loadGarage();
+  };
+
+  const handleOpenEditMaint = (item: Maintenance) => {
+    setEditingMaint(item);
+    setEditMaintType(item.type);
+    setEditMaintDesc(item.description);
+    setEditMaintOdo(item.odometer_km.toString());
+    setEditMaintNextOdo(item.next_service_km.toString());
+  };
+
+  const handleSaveEditMaint = async () => {
+    if (!editingMaint) return;
+    await dbService.updateMaintenanceLog({
+      id: editingMaint.id,
+      type: editMaintType.trim() || editingMaint.type,
+      description: editMaintDesc.trim() || editingMaint.description,
+      odometer_km: parseFloat(editMaintOdo) || editingMaint.odometer_km,
+      next_service_km: parseFloat(editMaintNextOdo) || editingMaint.next_service_km,
+    });
+    setEditingMaint(null);
+    loadGarage();
+  };
+
+  const handleDeleteMaintenance = (id: number) => {
+    Alert.alert(
+      'Delete Service Log',
+      'Are you sure you want to delete this maintenance record?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await dbService.deleteMaintenanceLog(id);
+            loadGarage();
+          },
+        },
+      ]
+    );
   };
 
   // Calculate Real-World Fuel Economy (km/L or MPG)
@@ -176,7 +294,9 @@ export default function GarageScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Bike Profile Card */}
-        {activeBike && (
+        {loading ? (
+          <CardSkeleton count={1} />
+        ) : activeBike ? (
           <View style={[styles.bikeCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={styles.bikeHeader}>
               <View style={[styles.bikeIconBox, { backgroundColor: theme.glowBg, borderColor: theme.primary }]}>
@@ -190,7 +310,7 @@ export default function GarageScreen() {
               </View>
               <TouchableOpacity
                 style={[styles.editBikeBtn, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder }]}
-                onPress={openEditBikeModal}
+                onPress={openAddOrEditBikeModal}
               >
                 <Edit3 size={14} color={theme.primary} />
                 <Text style={[styles.editBikeBtnText, { color: theme.primary }]}>EDIT</Text>
@@ -205,6 +325,14 @@ export default function GarageScreen() {
               <Text style={[styles.odoVal, { color: theme.primary }]}>{activeBike.current_odometer.toLocaleString()} km</Text>
             </View>
           </View>
+        ) : (
+          <EmptyState
+            icon={<Bike size={24} color={theme.primary} />}
+            title="NO MOTORCYCLE PROFILE"
+            description="Create your motorcycle profile to track odometer readings, service intervals, and fuel economy."
+            actionLabel="ADD MOTORCYCLE PROFILE"
+            onAction={openAddOrEditBikeModal}
+          />
         )}
 
         {/* Fuel Economy Highlights */}
@@ -265,30 +393,61 @@ export default function GarageScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* List Content */}
-        {tab === 'fuel' ? (
-          <View>
-            {fuelLogs.map((log) => (
-              <FuelCard key={log.id} log={log} />
-            ))}
-          </View>
+        {/* List Content with Loading & Empty State */}
+        {loading ? (
+          <CardSkeleton count={3} />
+        ) : tab === 'fuel' ? (
+          fuelLogs.length > 0 ? (
+            <View>
+              {fuelLogs.map((log) => (
+                <FuelCard
+                  key={log.id}
+                  log={log}
+                  onEdit={handleOpenEditFuel}
+                  onDelete={handleDeleteFuel}
+                />
+              ))}
+            </View>
+          ) : (
+            <EmptyState
+              icon={<Fuel size={24} color={theme.primary} />}
+              title="NO FUEL LOGS RECORDED"
+              description="Keep track of fill-up costs, liters added, and fuel economy over time."
+              actionLabel="LOG FIRST FILL-UP"
+              onAction={() => setShowFuelModal(true)}
+            />
+          )
         ) : (
-          <View>
-            {maintenance.map((item) => (
-              <MaintenanceCard
-                key={item.id}
-                item={item}
-                currentOdometer={activeBike?.current_odometer || 0}
-              />
-            ))}
-          </View>
+          maintenance.length > 0 ? (
+            <View>
+              {maintenance.map((item) => (
+                <MaintenanceCard
+                  key={item.id}
+                  item={item}
+                  currentOdometer={activeBike?.current_odometer || 0}
+                  onEdit={handleOpenEditMaint}
+                  onDelete={handleDeleteMaintenance}
+                />
+              ))}
+            </View>
+          ) : (
+            <EmptyState
+              icon={<Wrench size={24} color={theme.primary} />}
+              title="NO SERVICE LOGS RECORDED"
+              description="Track oil changes, chain lubrication, and scheduled service progress."
+              actionLabel="LOG FIRST SERVICE"
+              onAction={() => setShowMaintModal(true)}
+            />
+          )
         )}
 
-        {/* Edit Bike Profile Modal */}
+        {/* Edit / Add Bike Profile Modal */}
         <Modal visible={showEditBikeModal} transparent animationType="fade">
           <View style={styles.modalBg}>
             <View style={[styles.modalContent, { backgroundColor: theme.modalBg, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>EDIT BIKE PROFILE</Text>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
+                {activeBike ? 'EDIT BIKE PROFILE' : 'ADD MOTORCYCLE PROFILE'}
+              </Text>
 
               <Text style={[styles.inputLabel, { color: theme.textMuted }]}>BIKE NAME / DISPLAY TITLE</Text>
               <TextInput
@@ -345,7 +504,7 @@ export default function GarageScreen() {
                   <Text style={[styles.modalCancelText, { color: theme.textMuted }]}>CANCEL</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.primary }]} onPress={handleSaveBike}>
-                  <Text style={[styles.modalSaveText, { color: theme.bg }]}>SAVE CHANGES</Text>
+                  <Text style={[styles.modalSaveText, { color: theme.bg }]}>SAVE PROFILE</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -387,6 +546,66 @@ export default function GarageScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.primary }]} onPress={handleAddFuel}>
                   <Text style={[styles.modalSaveText, { color: theme.bg }]}>SAVE LOG</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Edit Fuel Modal */}
+        <Modal visible={!!editingFuel} transparent animationType="fade">
+          <View style={styles.modalBg}>
+            <View style={[styles.modalContent, { backgroundColor: theme.modalBg, borderColor: theme.cardBorder }]}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>EDIT FUEL FILL-UP</Text>
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>LITERS ADDED</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. 8.5"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="numeric"
+                value={editFuelLiters}
+                onChangeText={setEditFuelLiters}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>TOTAL COST ($)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. 14.20"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="numeric"
+                value={editFuelCost}
+                onChangeText={setEditFuelCost}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>ODOMETER (KM)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. 4250"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="numeric"
+                value={editFuelOdo}
+                onChangeText={setEditFuelOdo}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>NOTES</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. High octane fuel station"
+                placeholderTextColor={theme.textMuted}
+                value={editFuelNotes}
+                onChangeText={setEditFuelNotes}
+              />
+
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  style={[styles.modalCancel, { borderColor: theme.cardBorder }]}
+                  onPress={() => setEditingFuel(null)}
+                >
+                  <Text style={[styles.modalCancelText, { color: theme.textMuted }]}>CANCEL</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.primary }]} onPress={handleSaveEditFuel}>
+                  <Text style={[styles.modalSaveText, { color: theme.bg }]}>UPDATE</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -436,6 +655,65 @@ export default function GarageScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.primary }]} onPress={handleAddMaintenance}>
                   <Text style={[styles.modalSaveText, { color: theme.bg }]}>SAVE SERVICE</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Edit Maintenance Modal */}
+        <Modal visible={!!editingMaint} transparent animationType="fade">
+          <View style={styles.modalBg}>
+            <View style={[styles.modalContent, { backgroundColor: theme.modalBg, borderColor: theme.cardBorder }]}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>EDIT SERVICE LOG</Text>
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>SERVICE TYPE</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. Engine Oil"
+                placeholderTextColor={theme.textMuted}
+                value={editMaintType}
+                onChangeText={setEditMaintType}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>DESCRIPTION</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. Replaced oil filter & Motul 10W40"
+                placeholderTextColor={theme.textMuted}
+                value={editMaintDesc}
+                onChangeText={setEditMaintDesc}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>SERVICE ODOMETER (KM)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. 4250"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="numeric"
+                value={editMaintOdo}
+                onChangeText={setEditMaintOdo}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>NEXT SERVICE ODOMETER (KM)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. 6250"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="numeric"
+                value={editMaintNextOdo}
+                onChangeText={setEditMaintNextOdo}
+              />
+
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  style={[styles.modalCancel, { borderColor: theme.cardBorder }]}
+                  onPress={() => setEditingMaint(null)}
+                >
+                  <Text style={[styles.modalCancelText, { color: theme.textMuted }]}>CANCEL</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.primary }]} onPress={handleSaveEditMaint}>
+                  <Text style={[styles.modalSaveText, { color: theme.bg }]}>UPDATE</Text>
                 </TouchableOpacity>
               </View>
             </View>

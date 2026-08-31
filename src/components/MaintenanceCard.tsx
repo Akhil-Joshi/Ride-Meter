@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Wrench, Calendar, CheckCircle2, AlertCircle } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Wrench, Edit3, Trash2 } from 'lucide-react-native';
 import { Maintenance } from '../utils/mockData';
 import { formatDate } from '../utils/formatting';
 import { useSettings } from '../context/SettingsContext';
@@ -8,9 +8,16 @@ import { useSettings } from '../context/SettingsContext';
 interface MaintenanceCardProps {
   item: Maintenance;
   currentOdometer: number;
+  onEdit?: (item: Maintenance) => void;
+  onDelete?: (id: number) => void;
 }
 
-export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({ item, currentOdometer }) => {
+export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({
+  item,
+  currentOdometer,
+  onEdit,
+  onDelete,
+}) => {
   const { theme } = useSettings();
   const remainingKm = item.next_service_km - currentOdometer;
   const isDue = remainingKm <= 0;
@@ -18,7 +25,7 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({ item, currentO
     100,
     Math.max(
       0,
-      ((currentOdometer - item.odometer_km) / (item.next_service_km - item.odometer_km)) * 100
+      ((currentOdometer - item.odometer_km) / Math.max(1, item.next_service_km - item.odometer_km)) * 100
     )
   );
 
@@ -35,7 +42,21 @@ export const MaintenanceCard: React.FC<MaintenanceCardProps> = ({ item, currentO
           <Wrench size={16} color={isDue ? theme.danger : theme.primary} />
           <Text style={[styles.type, { color: theme.textPrimary }]}>{item.type}</Text>
         </View>
-        <Text style={[styles.date, { color: theme.textMuted }]}>{formatDate(item.service_date)}</Text>
+        <View style={styles.rightHeader}>
+          <Text style={[styles.date, { color: theme.textMuted }]}>{formatDate(item.service_date)}</Text>
+
+          {onEdit && (
+            <TouchableOpacity style={styles.iconBtn} onPress={() => onEdit(item)}>
+              <Edit3 size={14} color={theme.primary} />
+            </TouchableOpacity>
+          )}
+
+          {onDelete && (
+            <TouchableOpacity style={styles.iconBtn} onPress={() => onDelete(item.id)}>
+              <Trash2 size={14} color={theme.danger} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <Text style={[styles.description, { color: theme.textSecondary }]}>{item.description}</Text>
@@ -93,6 +114,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  rightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   type: {
     fontFamily: 'monospace',
     fontSize: 15,
@@ -101,6 +127,9 @@ const styles = StyleSheet.create({
   date: {
     fontFamily: 'monospace',
     fontSize: 11,
+  },
+  iconBtn: {
+    padding: 4,
   },
   description: {
     fontFamily: 'monospace',

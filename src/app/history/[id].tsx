@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { Download, Trash2, Clock, Gauge, Flame, MapPin, Save } from 'lucide-react-native';
+import { Download, Trash2, Clock, Gauge, Flame, MapPin, Save, Edit3 } from 'lucide-react-native';
 import { dbService } from '../../database/db';
 import { Trip } from '../../utils/mockData';
 import { formatDistance, formatDuration, formatSpeed, formatDate } from '../../utils/formatting';
@@ -23,7 +23,8 @@ export default function TripDetailScreen() {
   const { settings, theme } = useSettings();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [notes, setNotes] = useState('');
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [tripType, setTripType] = useState<string>('Personal');
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -31,6 +32,7 @@ export default function TripDetailScreen() {
         if (data) {
           setTrip(data);
           setNotes(data.notes || '');
+          setTripType(data.trip_type || 'Personal');
         }
       });
     }
@@ -46,10 +48,14 @@ export default function TripDetailScreen() {
     );
   }
 
-  const handleSaveNotes = async () => {
-    await dbService.saveTrip({ id: trip.id, notes });
-    setTrip({ ...trip, notes });
-    setIsEditingNotes(false);
+  const handleSaveDetails = async () => {
+    await dbService.saveTrip({
+      id: trip.id,
+      notes,
+      trip_type: tripType,
+    });
+    setTrip({ ...trip, notes, trip_type: tripType });
+    setIsEditing(false);
   };
 
   const handleExportGPX = async () => {
@@ -104,14 +110,22 @@ export default function TripDetailScreen() {
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Trip Title & Date */}
+        {/* Trip Title & Category Badge */}
         <View style={styles.titleSection}>
           <View style={styles.badgeRow}>
+            {(trip.status === 'active' || trip.status === 'paused') && (
+              <View style={[styles.ongoingBadge, { backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: theme.warning }]}>
+                <Text style={[styles.ongoingText, { color: theme.warning }]}>ONGOING RIDE</Text>
+              </View>
+            )}
+
             <View style={[styles.typeBadge, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: theme.primary }]}>
               <Text style={[styles.typeText, { color: theme.primary }]}>{trip.trip_type || 'Personal'}</Text>
             </View>
+
             <Text style={[styles.dateText, { color: theme.textMuted }]}>{formatDate(trip.started_at)}</Text>
           </View>
+
           <Text style={[styles.mainTitle, { color: theme.textPrimary }]}>
             {formatDistance(trip.distance_km, settings.distanceUnit)} Ride
           </Text>
@@ -176,35 +190,65 @@ export default function TripDetailScreen() {
           </View>
         </View>
 
-        {/* Notes Editor Section */}
+        {/* Category & Notes Editor Section */}
         <View style={styles.notesHeaderRow}>
-          <Text style={[styles.sectionHeader, { color: theme.textMuted }]}>RIDE NOTES</Text>
-          {isEditingNotes ? (
-            <TouchableOpacity style={[styles.saveNotesBtn, { backgroundColor: theme.primary }]} onPress={handleSaveNotes}>
+          <Text style={[styles.sectionHeader, { color: theme.textMuted }]}>CATEGORY & RIDE NOTES</Text>
+          {isEditing ? (
+            <TouchableOpacity style={[styles.saveNotesBtn, { backgroundColor: theme.primary }]} onPress={handleSaveDetails}>
               <Save size={14} color={theme.bg} />
-              <Text style={[styles.saveNotesText, { color: theme.bg }]}>SAVE</Text>
+              <Text style={[styles.saveNotesText, { color: theme.bg }]}>SAVE CHANGES</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity onPress={() => setIsEditingNotes(true)}>
-              <Text style={[styles.editNotesText, { color: theme.primary }]}>EDIT NOTES</Text>
+            <TouchableOpacity onPress={() => setIsEditing(true)}>
+              <Text style={[styles.editNotesText, { color: theme.primary }]}>EDIT DETAILS</Text>
             </TouchableOpacity>
           )}
         </View>
 
         <View style={[styles.notesCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          {isEditingNotes ? (
-            <TextInput
-              style={[styles.notesInput, { color: theme.textPrimary }]}
-              multiline
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Add details about road conditions, weather, or bike performance..."
-              placeholderTextColor={theme.textMuted}
-            />
+          {isEditing ? (
+            <View style={styles.editSection}>
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>RIDE CATEGORY</Text>
+              <View style={styles.catPickerRow}>
+                {(['Personal', 'Commute', 'Tour'] as const).map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.catChip,
+                      { backgroundColor: theme.cardHover, borderColor: theme.cardBorder },
+                      tripType === cat && { borderColor: theme.primary, backgroundColor: theme.cardHover },
+                    ]}
+                    onPress={() => setTripType(cat)}
+                  >
+                    <Text
+                      style={[
+                        styles.catChipText,
+                        { color: theme.textMuted },
+                        tripType === cat && { color: theme.primary },
+                      ]}
+                    >
+                      {cat.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>RIDE NOTES</Text>
+              <TextInput
+                style={[styles.notesInput, { color: theme.textPrimary, borderColor: theme.cardBorder, backgroundColor: theme.cardHover }]}
+                multiline
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Add details about road conditions, weather, or bike performance..."
+                placeholderTextColor={theme.textMuted}
+              />
+            </View>
           ) : (
-            <Text style={[styles.notesText, { color: theme.textSecondary }]}>
-              {trip.notes ? `"${trip.notes}"` : 'No notes added for this ride.'}
-            </Text>
+            <View>
+              <Text style={[styles.notesText, { color: theme.textSecondary }]}>
+                {trip.notes ? `"${trip.notes}"` : 'No notes added for this ride.'}
+              </Text>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -241,6 +285,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 6,
+  },
+  ongoingBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  ongoingText: {
+    fontFamily: 'monospace',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   typeBadge: {
     paddingHorizontal: 8,
@@ -334,10 +390,39 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontStyle: 'italic',
   },
+  editSection: {
+    gap: 8,
+  },
+  inputLabel: {
+    fontFamily: 'monospace',
+    fontSize: 9,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  catPickerRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  catChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  catChipText: {
+    fontFamily: 'monospace',
+    fontSize: 10,
+    fontWeight: '800',
+  },
   notesInput: {
     fontFamily: 'monospace',
     fontSize: 13,
     minHeight: 60,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 8,
   },
   center: {
     flex: 1,

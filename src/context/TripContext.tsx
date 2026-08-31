@@ -33,7 +33,7 @@ interface TripContextType {
   activeTripId: number | null;
   hasRecoverableTrip: boolean;
   recoverableTripData: any | null;
-  startRide: () => Promise<void>;
+  startRide: (tripType?: string) => Promise<void>;
   pauseRide: () => void;
   resumeRide: () => void;
   endRide: () => Promise<number | null>;
@@ -301,7 +301,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     lastLocationRef.current = point;
   };
 
-  const startRide = async () => {
+  const startRide = async (tripType: string = 'Personal') => {
     try {
       if (Platform.OS !== 'web') {
         await activateKeepAwakeAsync();
@@ -315,7 +315,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const tripId = await dbService.saveTrip({
       started_at: startedAt,
       status: 'active',
-      trip_type: 'Personal',
+      trip_type: tripType,
     });
 
     setActiveTripId(tripId);

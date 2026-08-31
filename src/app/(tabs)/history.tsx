@@ -1,8 +1,7 @@
 import { router, Stack, useFocusEffect } from 'expo-router';
-import { Download, Search } from 'lucide-react-native';
+import { Download, Search, Navigation } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,8 @@ import {
   View,
 } from 'react-native';
 import { TripCard } from '../../components/TripCard';
+import { EmptyState } from '../../components/EmptyState';
+import { CardSkeleton } from '../../components/SkeletonLoader';
 import { dbService } from '../../database/db';
 import { ExportService } from '../../services/exportService';
 import { Trip } from '../../utils/mockData';
@@ -141,9 +142,7 @@ export default function HistoryScreen() {
 
         {/* Trips List */}
         {loading ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={theme.primary} />
-          </View>
+          <CardSkeleton count={4} />
         ) : (
           <FlatList
             data={filteredTrips}
@@ -157,9 +156,13 @@ export default function HistoryScreen() {
             )}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={[styles.emptyText, { color: theme.textMuted }]}>No rides found in history.</Text>
-              </View>
+              <EmptyState
+                icon={<Navigation size={24} color={theme.primary} />}
+                title="NO RIDE LOGS YET"
+                description="Start your first motorcycle ride from the Dashboard to record speed, duration, and route data."
+                actionLabel="GO TO DASHBOARD"
+                onAction={() => router.push('/')}
+              />
             }
           />
         )}
@@ -227,18 +230,5 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 24,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontFamily: 'monospace',
-    fontSize: 13,
   },
 });

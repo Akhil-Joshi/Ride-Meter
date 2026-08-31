@@ -1,8 +1,10 @@
-import { Stack, useFocusEffect } from 'expo-router';
-import { Award, Clock, Compass, Flame, Gauge } from 'lucide-react-native';
+import { router, Stack, useFocusEffect } from 'expo-router';
+import { Award, Clock, Compass, Flame, Gauge, ChartBar } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { StatCard } from '../../components/StatCard';
+import { EmptyState } from '../../components/EmptyState';
+import { CardSkeleton } from '../../components/SkeletonLoader';
 import { useSettings } from '../../context/SettingsContext';
 import { dbService } from '../../database/db';
 import { formatDistance, formatDuration, formatSpeed } from '../../utils/formatting';
@@ -12,10 +14,15 @@ export default function StatisticsScreen() {
   const { settings, theme } = useSettings();
   const [period, setPeriod] = useState<'lifetime' | 'monthly' | 'weekly'>('lifetime');
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const loadData = async () => {
-    const data = await dbService.getTrips();
-    setTrips(data);
+    try {
+      const data = await dbService.getTrips();
+      setTrips(data);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useFocusEffect(
@@ -85,81 +92,95 @@ export default function StatisticsScreen() {
           ))}
         </View>
 
-        {/* Primary Key Metric Banner */}
-        <View style={[styles.heroCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          <Compass size={24} color={theme.primary} />
-          <Text style={[styles.heroVal, { color: theme.textPrimary }]}>
-            {formatDistance(totalDistanceKm, settings.distanceUnit)}
-          </Text>
-          <Text style={[styles.heroLabel, { color: theme.primary }]}>TOTAL DISTANCE COVERED</Text>
-        </View>
+        {loading ? (
+          <CardSkeleton count={3} />
+        ) : totalTrips === 0 ? (
+          <EmptyState
+            icon={<ChartBar size={24} color={theme.primary} />}
+            title="NO ANALYTICS DATA YET"
+            description="Record motorcycle rides to view detailed speed trends, distance stats, and category breakdowns."
+            actionLabel="START YOUR FIRST RIDE"
+            onAction={() => router.push('/')}
+          />
+        ) : (
+          <>
+            {/* Primary Key Metric Banner */}
+            <View style={[styles.heroCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              <Compass size={24} color={theme.primary} />
+              <Text style={[styles.heroVal, { color: theme.textPrimary }]}>
+                {formatDistance(totalDistanceKm, settings.distanceUnit)}
+              </Text>
+              <Text style={[styles.heroLabel, { color: theme.primary }]}>TOTAL DISTANCE COVERED</Text>
+            </View>
 
-        {/* 2x2 Primary Grid */}
-        <View style={styles.grid}>
-          <View style={styles.gridRow}>
-            <StatCard
-              label="TOTAL TRIPS"
-              value={totalTrips}
-              icon={<Award size={14} color={theme.primary} />}
-            />
-            <StatCard
-              label="RIDING TIME"
-              value={formatDuration(totalDurationSec)}
-              icon={<Clock size={14} color={theme.primaryGlow} />}
-            />
-          </View>
-
-          <View style={styles.gridRow}>
-            <StatCard
-              label="AVG SPEED"
-              value={formatSpeed(overallAvgSpeedKmh, settings.speedUnit)}
-              unit={settings.speedUnit.toUpperCase()}
-              icon={<Gauge size={14} color={theme.primary} />}
-            />
-            <StatCard
-              label="TOP MAX SPEED"
-              value={formatSpeed(topMaxSpeedKmh, settings.speedUnit)}
-              unit={settings.speedUnit.toUpperCase()}
-              icon={<Flame size={14} color={theme.danger} />}
-              highlight
-            />
-          </View>
-
-          <View style={styles.gridRow}>
-            <StatCard
-              label="AVG TRIP DISTANCE"
-              value={formatDistance(avgTripDistanceKm, settings.distanceUnit)}
-            />
-            <StatCard
-              label="LONGEST SINGLE RIDE"
-              value={formatDistance(longestTripKm, settings.distanceUnit)}
-            />
-          </View>
-        </View>
-
-        {/* Trip Category Distribution */}
-        <Text style={[styles.sectionHeader, { color: theme.textMuted }]}>RIDE CATEGORY BREAKDOWN</Text>
-        <View style={[styles.breakdownCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          {['Personal', 'Commute', 'Tour'].map((cat) => {
-            const count = filteredTrips.filter((t) => t.trip_type === cat).length;
-            const pct = totalTrips > 0 ? Math.round((count / totalTrips) * 100) : 0;
-            return (
-              <View key={cat} style={styles.breakdownRow}>
-                <View style={styles.catLeft}>
-                  <Text style={[styles.catName, { color: theme.textPrimary }]}>{cat}</Text>
-                  <Text style={[styles.catCount, { color: theme.textMuted }]}>{count} rides</Text>
-                </View>
-
-                <View style={styles.barContainer}>
-                  <View style={[styles.barBg, { backgroundColor: theme.gaugeArcBg }]}>
-                    <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: theme.primary }]} />
-                  </View>
-                  <Text style={[styles.pctText, { color: theme.textSecondary }]}>{pct}%</Text>
-                </View>
+            {/* 2x2 Primary Grid */}
+            <View style={styles.grid}>
+              <View style={styles.gridRow}>
+                <StatCard
+                  label="TOTAL TRIPS"
+                  value={totalTrips}
+                  icon={<Award size={14} color={theme.primary} />}
+                />
+                <StatCard
+                  label="RIDING TIME"
+                  value={formatDuration(totalDurationSec)}
+                  icon={<Clock size={14} color={theme.primaryGlow} />}
+                />
               </View>
-            );
-          })}
-        </View>
+
+              <View style={styles.gridRow}>
+                <StatCard
+                  label="AVG SPEED"
+                  value={formatSpeed(overallAvgSpeedKmh, settings.speedUnit)}
+                  unit={settings.speedUnit.toUpperCase()}
+                  icon={<Gauge size={14} color={theme.primary} />}
+                />
+                <StatCard
+                  label="TOP MAX SPEED"
+                  value={formatSpeed(topMaxSpeedKmh, settings.speedUnit)}
+                  unit={settings.speedUnit.toUpperCase()}
+                  icon={<Flame size={14} color={theme.danger} />}
+                  highlight
+                />
+              </View>
+
+              <View style={styles.gridRow}>
+                <StatCard
+                  label="AVG TRIP DISTANCE"
+                  value={formatDistance(avgTripDistanceKm, settings.distanceUnit)}
+                />
+                <StatCard
+                  label="LONGEST SINGLE RIDE"
+                  value={formatDistance(longestTripKm, settings.distanceUnit)}
+                />
+              </View>
+            </View>
+
+            {/* Trip Category Distribution */}
+            <Text style={[styles.sectionHeader, { color: theme.textMuted }]}>RIDE CATEGORY BREAKDOWN</Text>
+            <View style={[styles.breakdownCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              {['Personal', 'Commute', 'Tour'].map((cat) => {
+                const count = filteredTrips.filter((t) => t.trip_type === cat).length;
+                const pct = totalTrips > 0 ? Math.round((count / totalTrips) * 100) : 0;
+                return (
+                  <View key={cat} style={styles.breakdownRow}>
+                    <View style={styles.catLeft}>
+                      <Text style={[styles.catName, { color: theme.textPrimary }]}>{cat}</Text>
+                      <Text style={[styles.catCount, { color: theme.textMuted }]}>{count} rides</Text>
+                    </View>
+
+                    <View style={styles.barContainer}>
+                      <View style={[styles.barBg, { backgroundColor: theme.gaugeArcBg }]}>
+                        <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: theme.primary }]} />
+                      </View>
+                      <Text style={[styles.pctText, { color: theme.textSecondary }]}>{pct}%</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );

@@ -44,6 +44,7 @@ export default function RideDashboardScreen() {
 
   const { settings, updateSettings, theme } = useSettings();
   const [activeBike, setActiveBike] = useState<BikeType | null>(null);
+  const [selectedTripType, setSelectedTripType] = useState<'Personal' | 'Commute' | 'Tour'>('Personal');
 
   useEffect(() => {
     dbService.getBikes().then((bikes) => {
@@ -107,20 +108,21 @@ export default function RideDashboardScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Bike Selector & Edit Link Pill */}
-        {activeBike && (
-          <View style={styles.bikeRow}>
-            <TouchableOpacity
-              style={[styles.bikePill, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-              onPress={() => router.push('/garage')}
-              activeOpacity={0.7}
-            >
-              <Bike size={14} color={theme.primary} />
-              <Text style={[styles.bikeText, { color: theme.textSecondary }]}>
-                {activeBike.name} ({activeBike.make} {activeBike.model})
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <View style={styles.bikeRow}>
+          <TouchableOpacity
+            style={[
+              styles.bikePill,
+              { backgroundColor: theme.card, borderColor: activeBike ? theme.cardBorder : theme.warning },
+            ]}
+            onPress={() => router.push('/garage')}
+            activeOpacity={0.7}
+          >
+            <Bike size={14} color={activeBike ? theme.primary : theme.warning} />
+            <Text style={[styles.bikeText, { color: activeBike ? theme.textSecondary : theme.warning }]}>
+              {activeBike ? `${activeBike.name} (${activeBike.make} ${activeBike.model})` : 'SETUP YOUR MOTORCYCLE PROFILE'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Crash Recovery Notification Banner */}
         {hasRecoverableTrip && tripStatus === 'idle' && (
@@ -130,8 +132,8 @@ export default function RideDashboardScreen() {
               <Text style={[styles.recoveryTitle, { color: theme.warning }]}>UNSAVED RIDE RECOVERED</Text>
             </View>
             <Text style={[styles.recoveryText, { color: theme.textSecondary }]}>
-              Distance: {recoverableTripData?.distance_km.toFixed(1)} km • Duration:{' '}
-              {formatDuration(recoverableTripData?.duration_seconds || 0)}
+              Distance: {(recoverableTripData?.distanceKm ?? recoverableTripData?.distance_km ?? 0).toFixed(1)} km • Duration:{' '}
+              {formatDuration(recoverableTripData?.durationSeconds ?? recoverableTripData?.duration_seconds ?? 0)}
             </Text>
             <View style={styles.recoveryActions}>
               <TouchableOpacity
@@ -220,24 +222,53 @@ export default function RideDashboardScreen() {
         {/* Primary Ride Control Action Bar */}
         <View style={styles.controlsContainer}>
           {(tripStatus === 'idle' || tripStatus === 'completed') && (
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[styles.mainStartBtn, { flex: 1, backgroundColor: theme.primary }]}
-                onPress={startRide}
-              >
-                <Play size={24} color={theme.bg} fill={theme.bg} />
-                <Text style={[styles.mainStartBtnText, { color: theme.bg }]}>START RIDE</Text>
-              </TouchableOpacity>
+            <View style={styles.idleBlock}>
+              <Text style={[styles.categoryLabel, { color: theme.textMuted }]}>SELECT RIDE TYPE</Text>
+              <View style={styles.categoryRow}>
+                {(['Personal', 'Commute', 'Tour'] as const).map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryChip,
+                      { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                      selectedTripType === cat && { borderColor: theme.primary, backgroundColor: theme.cardHover },
+                    ]}
+                    onPress={() => setSelectedTripType(cat)}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        { color: theme.textMuted },
+                        selectedTripType === cat && { color: theme.primary },
+                      ]}
+                    >
+                      {cat.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-              {(distanceKm > 0 || durationSeconds > 0 || maxSpeed > 0) && (
+              <View style={styles.actionRow}>
                 <TouchableOpacity
-                  style={[styles.resetBtn, { backgroundColor: theme.card, borderColor: theme.warning }]}
-                  onPress={handleResetRide}
+                  style={[styles.mainStartBtn, { flex: 1, backgroundColor: theme.primary }]}
+                  onPress={() => startRide(selectedTripType)}
                 >
-                  <RotateCcw size={18} color={theme.warning} />
-                  <Text style={[styles.resetBtnText, { color: theme.warning }]}>RESET</Text>
+                  <Play size={22} color={theme.bg} fill={theme.bg} />
+                  <Text style={[styles.mainStartBtnText, { color: theme.bg }]}>
+                    START {selectedTripType.toUpperCase()} RIDE
+                  </Text>
                 </TouchableOpacity>
-              )}
+
+                {(distanceKm > 0 || durationSeconds > 0 || maxSpeed > 0) && (
+                  <TouchableOpacity
+                    style={[styles.resetBtn, { backgroundColor: theme.card, borderColor: theme.warning }]}
+                    onPress={handleResetRide}
+                  >
+                    <RotateCcw size={18} color={theme.warning} />
+                    <Text style={[styles.resetBtnText, { color: theme.warning }]}>RESET</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           )}
 
@@ -402,6 +433,32 @@ const styles = StyleSheet.create({
   },
   controlsContainer: {
     marginTop: 10,
+  },
+  idleBlock: {
+    gap: 8,
+  },
+  categoryLabel: {
+    fontFamily: 'monospace',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  categoryChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  categoryChipText: {
+    fontFamily: 'monospace',
+    fontSize: 10,
+    fontWeight: '800',
   },
   actionRow: {
     flexDirection: 'row',

@@ -1,15 +1,17 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Fuel, DollarSign, Gauge } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Fuel, Edit3, Trash2 } from 'lucide-react-native';
 import { FuelLog } from '../utils/mockData';
 import { formatDate } from '../utils/formatting';
 import { useSettings } from '../context/SettingsContext';
 
 interface FuelCardProps {
   log: FuelLog;
+  onEdit?: (log: FuelLog) => void;
+  onDelete?: (id: number) => void;
 }
 
-export const FuelCard: React.FC<FuelCardProps> = ({ log }) => {
+export const FuelCard: React.FC<FuelCardProps> = ({ log, onEdit, onDelete }) => {
   const { theme } = useSettings();
 
   return (
@@ -19,7 +21,21 @@ export const FuelCard: React.FC<FuelCardProps> = ({ log }) => {
           <Fuel size={18} color={theme.primary} />
           <Text style={[styles.title, { color: theme.textPrimary }]}>{log.liters.toFixed(1)} Liters</Text>
         </View>
-        <Text style={[styles.date, { color: theme.textMuted }]}>{formatDate(log.filled_at)}</Text>
+        <View style={styles.rightHeader}>
+          <Text style={[styles.date, { color: theme.textMuted }]}>{formatDate(log.filled_at)}</Text>
+
+          {onEdit && (
+            <TouchableOpacity style={styles.iconBtn} onPress={() => onEdit(log)}>
+              <Edit3 size={14} color={theme.primary} />
+            </TouchableOpacity>
+          )}
+
+          {onDelete && (
+            <TouchableOpacity style={styles.iconBtn} onPress={() => onDelete(log.id)}>
+              <Trash2 size={14} color={theme.danger} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={[styles.detailsRow, { backgroundColor: theme.cardHover }]}>
@@ -62,6 +78,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  rightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   title: {
     fontFamily: 'monospace',
     fontSize: 16,
@@ -70,6 +91,9 @@ const styles = StyleSheet.create({
   date: {
     fontFamily: 'monospace',
     fontSize: 11,
+  },
+  iconBtn: {
+    padding: 4,
   },
   detailsRow: {
     flexDirection: 'row',

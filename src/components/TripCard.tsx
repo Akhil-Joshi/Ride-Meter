@@ -25,6 +25,11 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, onPress, onToggleFavor
     >
       <View style={styles.header}>
         <View style={styles.badgeRow}>
+          {(trip.status === 'active' || trip.status === 'paused') && (
+            <View style={[styles.ongoingBadge, { backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: theme.warning }]}>
+              <Text style={[styles.ongoingText, { color: theme.warning }]}>ONGOING</Text>
+            </View>
+          )}
           <View style={[styles.typeBadge, { backgroundColor: 'rgba(56, 189, 248, 0.15)', borderColor: theme.primary }]}>
             <Text style={[styles.typeText, { color: theme.primary }]}>{trip.trip_type || 'Personal'}</Text>
           </View>
@@ -100,6 +105,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  ongoingBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  ongoingText: {
+    fontFamily: 'monospace',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   typeBadge: {
     paddingHorizontal: 8,
