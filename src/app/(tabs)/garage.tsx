@@ -17,7 +17,7 @@ import { useFocusEffect, Stack } from 'expo-router';
 import { useSettings } from '../../context/SettingsContext';
 
 export default function GarageScreen() {
-  const { theme } = useSettings();
+  const { settings, theme } = useSettings();
   const [bikes, setBikes] = useState<BikeType[]>([]);
   const [activeBike, setActiveBike] = useState<BikeType | null>(null);
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
@@ -118,12 +118,44 @@ export default function GarageScreen() {
     loadGarage();
   };
 
-  // Calculate Fuel Economy (km/L)
+  // Calculate Real-World Fuel Economy (km/L or MPG)
   const calculateAvgEconomy = () => {
-    if (fuelLogs.length < 2) return '42.5';
-    const totalLiters = fuelLogs.reduce((acc, f) => acc + f.liters, 0);
-    const odoDiff = Math.abs(fuelLogs[0].odometer_km - fuelLogs[fuelLogs.length - 1].odometer_km);
-    return totalLiters > 0 && odoDiff > 0 ? (odoDiff / totalLiters).toFixed(1) : '42.5';
+    if (fuelLogs.length >= 2) {
+      const sortedLogs = [...fuelLogs].sort((a, b) => a.odometer_km - b.odometer_km);
+      let totalDist = 0;
+      let totalLiters = 0;
+
+      for (let i = 1; i < sortedLogs.length; i++) {
+        const dist = sortedLogs[i].odometer_km - sortedLogs[i - 1].odometer_km;
+        const liters = sortedLogs[i].liters;
+        if (dist > 0 && liters > 0) {
+          totalDist += dist;
+          totalLiters += liters;
+        }
+      }
+
+      if (totalLiters > 0 && totalDist > 0) {
+        const economyKmL = totalDist / totalLiters;
+        if (settings.distanceUnit === 'mi') {
+          return `${(economyKmL * 2.35215).toFixed(1)} MPG`;
+        }
+        return `${economyKmL.toFixed(1)} km/L`;
+      }
+    }
+
+    if (fuelLogs.length === 1 && activeBike) {
+      const initialLog = fuelLogs[0];
+      const distTraveled = activeBike.current_odometer - initialLog.odometer_km;
+      if (distTraveled > 0 && initialLog.liters > 0) {
+        const economyKmL = distTraveled / initialLog.liters;
+        if (settings.distanceUnit === 'mi') {
+          return `${(economyKmL * 2.35215).toFixed(1)} MPG`;
+        }
+        return `${economyKmL.toFixed(1)} km/L`;
+      }
+    }
+
+    return settings.distanceUnit === 'mi' ? '-- MPG' : '-- km/L';
   };
 
   return (
@@ -180,8 +212,10 @@ export default function GarageScreen() {
           <View style={styles.effLeft}>
             <Fuel size={20} color={theme.primary} />
             <View>
-              <Text style={[styles.effVal, { color: theme.textPrimary }]}>{calculateAvgEconomy()} km/L</Text>
-              <Text style={[styles.effLabel, { color: theme.textMuted }]}>AVERAGE FUEL ECONOMY</Text>
+              <Text style={[styles.effVal, { color: theme.textPrimary }]}>{calculateAvgEconomy()}</Text>
+              <Text style={[styles.effLabel, { color: theme.textMuted }]}>
+                CALCULATED FUEL ECONOMY ({settings.distanceUnit === 'mi' ? 'MPG' : 'KM/L'})
+              </Text>
             </View>
           </View>
         </View>

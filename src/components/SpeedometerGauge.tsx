@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, Text } from 'react-native';
-import Svg, { Path, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop, Filter, FeDropShadow } from 'react-native-svg';
-import CYANIDE_THEME from '../constants/colors';
+import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
 import { useSettings } from '../context/SettingsContext';
 
 interface SpeedometerGaugeProps {
@@ -17,7 +16,7 @@ export const SpeedometerGauge: React.FC<SpeedometerGaugeProps> = ({
   isAlert = false,
   unitLabel = 'KM/H',
 }) => {
-  const { settings, theme } = useSettings();
+  const { theme } = useSettings();
 
   const size = 300;
   const strokeWidth = 14;
@@ -81,7 +80,7 @@ export const SpeedometerGauge: React.FC<SpeedometerGaugeProps> = ({
         y1={p1.y}
         x2={p2.x}
         y2={p2.y}
-        stroke={isMajor ? CYANIDE_THEME.gaugeTickMajor : CYANIDE_THEME.gaugeTickMinor}
+        stroke={isMajor ? theme.gaugeTickMajor : theme.gaugeTickMinor}
         strokeWidth={isMajor ? 2.5 : 1.2}
       />
     );
@@ -94,7 +93,7 @@ export const SpeedometerGauge: React.FC<SpeedometerGaugeProps> = ({
           key={`text-${val}`}
           x={textPos.x}
           y={textPos.y + 4}
-          fill={CYANIDE_THEME.textSecondary}
+          fill={theme.textSecondary}
           fontSize="11"
           fontWeight="bold"
           fontFamily="monospace"
@@ -107,10 +106,10 @@ export const SpeedometerGauge: React.FC<SpeedometerGaugeProps> = ({
   }
 
   // Calculate Needle Coordinates
-  const needleLen = radius - 30;
+  const needleLen = radius - 32;
   const needleTip = polarToCartesian(center, center, needleLen, currentAngle);
-  const needleBase1 = polarToCartesian(center, center, 10, currentAngle + 90);
-  const needleBase2 = polarToCartesian(center, center, 10, currentAngle - 90);
+  const needleBase1 = polarToCartesian(center, center, 8, currentAngle + 90);
+  const needleBase2 = polarToCartesian(center, center, 8, currentAngle - 90);
 
   const needlePath = `M ${needleBase1.x} ${needleBase1.y} L ${needleTip.x} ${needleTip.y} L ${needleBase2.x} ${needleBase2.y} Z`;
 
@@ -119,12 +118,12 @@ export const SpeedometerGauge: React.FC<SpeedometerGaugeProps> = ({
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <Defs>
           <LinearGradient id="cyanGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor={CYANIDE_THEME.primary} stopOpacity="1" />
-            <Stop offset="100%" stopColor={CYANIDE_THEME.primaryGlow} stopOpacity="0.8" />
+            <Stop offset="0%" stopColor={theme.primary} stopOpacity="1" />
+            <Stop offset="100%" stopColor={theme.primaryGlow} stopOpacity="0.8" />
           </LinearGradient>
 
           <LinearGradient id="alertGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor={CYANIDE_THEME.danger} stopOpacity="1" />
+            <Stop offset="0%" stopColor={theme.danger} stopOpacity="1" />
             <Stop offset="100%" stopColor="#f87171" stopOpacity="0.9" />
           </LinearGradient>
         </Defs>
@@ -167,24 +166,30 @@ export const SpeedometerGauge: React.FC<SpeedometerGaugeProps> = ({
           opacity={0.9}
         />
 
-        {/* Center Needle Cap */}
+        {/* Center Needle Cap Pivot Pin */}
         <Circle
           cx={center}
           cy={center}
-          r="14"
+          r="10"
           fill={theme.card}
           stroke={isAlert ? theme.danger : theme.primary}
-          strokeWidth="3"
+          strokeWidth="2.5"
         />
-        <Circle cx={center} cy={center} r="5" fill={theme.primaryGlow} />
+        <Circle cx={center} cy={center} r="4" fill={theme.primaryGlow} />
       </Svg>
 
-      {/* Digital Speed Center Readout */}
-      <View style={styles.centerReadout}>
-        <Text style={[styles.speedText, { color: theme.textPrimary }, isAlert && styles.speedTextAlert]}>
+      {/* Digital Speed Display Pod (Positioned cleanly below the needle pivot pin) */}
+      <View
+        style={[
+          styles.digitalPod,
+          { backgroundColor: theme.card, borderColor: theme.cardBorder },
+          isAlert && { borderColor: theme.danger },
+        ]}
+      >
+        <Text style={[styles.speedText, { color: theme.textPrimary }, isAlert && { color: theme.danger }]}>
           {Math.round(speed)}
         </Text>
-        <Text style={[styles.unitText, { color: theme.primary }, isAlert && styles.unitTextAlert]}>
+        <Text style={[styles.unitText, { color: theme.primary }, isAlert && { color: theme.danger }]}>
           {unitLabel}
         </Text>
       </View>
@@ -199,35 +204,29 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginVertical: 10,
   },
-  centerReadout: {
+  digitalPod: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    top: 145,
+    top: 230,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    minWidth: 100,
   },
   speedText: {
     fontFamily: 'monospace',
-    fontSize: 54,
+    fontSize: 42,
     fontWeight: '900',
-    color: CYANIDE_THEME.textPrimary,
-    letterSpacing: -2,
-    textShadowColor: 'rgba(56, 189, 248, 0.6)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-  },
-  speedTextAlert: {
-    color: CYANIDE_THEME.danger,
-    textShadowColor: 'rgba(239, 68, 68, 0.8)',
+    letterSpacing: -1,
+    lineHeight: 46,
   },
   unitText: {
     fontFamily: 'monospace',
-    fontSize: 14,
-    fontWeight: '700',
-    color: CYANIDE_THEME.primary,
+    fontSize: 11,
+    fontWeight: '800',
     letterSpacing: 2,
-    marginTop: -4,
-  },
-  unitTextAlert: {
-    color: CYANIDE_THEME.danger,
+    marginTop: -2,
   },
 });
