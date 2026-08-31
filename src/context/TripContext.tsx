@@ -272,6 +272,15 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 2. Reject noisy locations
     if (point.accuracy > settings.accuracyThresholdMeters) return;
 
+    // Save initial high-precision start coordinates on first valid GPS point
+    if (activeTripId && !lastLocationRef.current) {
+      dbService.saveTrip({
+        id: activeTripId,
+        start_latitude: point.latitude,
+        start_longitude: point.longitude,
+      });
+    }
+
     // 3. Smooth speed via Exponential Moving Average (EMA)
     const MIN_MOVING_SPEED_KMH = 1.0; // Stationary Noise Filter threshold
     let activeSpeed = 0;
@@ -316,11 +325,13 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const startedAt = new Date().toISOString();
     startedAtRef.current = startedAt;
 
-    // Create DB trip record
+    // Create DB trip record with high precision start coordinates
     const tripId = await dbService.saveTrip({
       started_at: startedAt,
       status: 'active',
       trip_type: tripType,
+      start_latitude: lastLocationRef.current?.latitude || undefined,
+      start_longitude: lastLocationRef.current?.longitude || undefined,
     });
 
     setActiveTripId(tripId);
@@ -366,6 +377,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         distance_km: parseFloat(distanceKm.toFixed(2)),
         average_speed_kmh: averageSpeed,
         max_speed_kmh: maxSpeed,
+        end_latitude: lastLocationRef.current?.latitude || undefined,
+        end_longitude: lastLocationRef.current?.longitude || undefined,
         status: 'completed',
       });
 

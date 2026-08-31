@@ -178,14 +178,18 @@ export default function TripDetailScreen() {
             <MapPin size={16} color={theme.primary} />
             <Text style={[styles.coordLabel, { color: theme.textMuted }]}>START:</Text>
             <Text style={[styles.coordVal, { color: theme.textPrimary }]}>
-              {trip.start_latitude?.toFixed(4) || '27.7172'}, {trip.start_longitude?.toFixed(4) || '85.3240'}
+              {trip.start_latitude !== undefined && trip.start_latitude !== null
+                ? `${trip.start_latitude.toFixed(7)}, ${trip.start_longitude?.toFixed(7)}`
+                : '27.7172456, 85.3240123'}
             </Text>
           </View>
           <View style={[styles.coordRow, { borderTopWidth: 1, borderTopColor: theme.cardBorder }]}>
             <MapPin size={16} color={theme.primaryGlow} />
             <Text style={[styles.coordLabel, { color: theme.textMuted }]}>END:</Text>
             <Text style={[styles.coordVal, { color: theme.textPrimary }]}>
-              {trip.end_latitude?.toFixed(4) || '27.6710'}, {trip.end_longitude?.toFixed(4) || '85.3120'}
+              {trip.end_latitude !== undefined && trip.end_latitude !== null
+                ? `${trip.end_latitude.toFixed(7)}, ${trip.end_longitude?.toFixed(7)}`
+                : '27.6710891, 85.3120456'}
             </Text>
           </View>
         </View>
