@@ -1,11 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
-import * as Location from 'expo-location';
-import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSettings } from './SettingsContext';
-import { calculateHaversineDistance } from '../utils/formatting';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import * as Location from 'expo-location';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { dbService } from '../database/db';
+import { calculateHaversineDistance } from '../utils/formatting';
+import { useSettings } from './SettingsContext';
 
 export type TripStatus = 'idle' | 'active' | 'paused' | 'completed';
 export type GPSQuality = 'searching' | 'locked' | 'weak' | 'disabled';
@@ -57,13 +57,13 @@ const TripContext = createContext<TripContextType>({
   activeTripId: null,
   hasRecoverableTrip: false,
   recoverableTripData: null,
-  startRide: async () => {},
-  pauseRide: () => {},
-  resumeRide: () => {},
+  startRide: async () => { },
+  pauseRide: () => { },
+  resumeRide: () => { },
   endRide: async () => null,
-  recoverRide: async () => {},
-  discardRecoveredRide: async () => {},
-  resetRide: async () => {},
+  recoverRide: async () => { },
+  discardRecoveredRide: async () => { },
+  resetRide: async () => { },
 });
 
 const ACTIVE_TRIP_KEY = '@ridemeter_active_trip_state';
@@ -105,7 +105,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setHasRecoverableTrip(true);
             setRecoverableTripData(parsed);
           }
-        } catch {}
+        } catch { }
       }
     });
   }, []);
@@ -273,18 +273,23 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (point.accuracy > settings.accuracyThresholdMeters) return;
 
     // 3. Smooth speed via Exponential Moving Average (EMA)
+    const MIN_MOVING_SPEED_KMH = 1.0; // Stationary Noise Filter threshold
+    let activeSpeed = 0;
+
     setCurrentSpeed((prevSpeed) => {
       const smoothed = ALPHA_EMA * point.speedKmh + (1 - ALPHA_EMA) * prevSpeed;
-      const finalSpeed = smoothed < 1.0 ? 0 : parseFloat(smoothed.toFixed(1));
-      
-      // Update max speed (reject spikes > 220 km/h)
-      if (finalSpeed <= 220) {
+      // Clamp speeds below 3.0 km/h to 0 (eliminates indoor GPS drift & desk jitter)
+      const finalSpeed = smoothed < MIN_MOVING_SPEED_KMH ? 0 : parseFloat(smoothed.toFixed(1));
+      activeSpeed = finalSpeed;
+
+      // Update max speed only when actively riding (reject spikes > 220 km/h)
+      if (finalSpeed >= MIN_MOVING_SPEED_KMH && finalSpeed <= 220) {
         setMaxSpeed((prevMax) => Math.max(prevMax, finalSpeed));
       }
       return finalSpeed;
     });
 
-    // 4. Calculate Distance via Haversine between consecutive points
+    // 4. Calculate Distance via Haversine between consecutive points ONLY when moving
     if (lastLocationRef.current) {
       const distMeters = calculateHaversineDistance(
         lastLocationRef.current.latitude,
@@ -293,8 +298,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         point.longitude
       );
 
-      // Noise protection: ignore jump > 500m in 1s or < 2m drift
-      if (distMeters >= 2 && distMeters < 500) {
+      // Only accumulate distance if actively moving (speed >= 3 km/h) & jump is reasonable
+      if (activeSpeed >= MIN_MOVING_SPEED_KMH && distMeters >= 2 && distMeters < 500) {
         setDistanceKm((prev) => parseFloat((prev + distMeters / 1000).toFixed(3)));
       }
     }
@@ -306,7 +311,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (Platform.OS !== 'web') {
         await activateKeepAwakeAsync();
       }
-    } catch {}
+    } catch { }
 
     const startedAt = new Date().toISOString();
     startedAtRef.current = startedAt;
@@ -346,7 +351,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (Platform.OS !== 'web') {
         await deactivateKeepAwake();
       }
-    } catch {}
+    } catch { }
 
     const endedAt = new Date().toISOString();
     let savedTripId = activeTripId;
@@ -383,7 +388,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (Platform.OS !== 'web') {
         await activateKeepAwakeAsync();
       }
-    } catch {}
+    } catch { }
 
     setActiveTripId(recoverableTripData.activeTripId || null);
     setDistanceKm(recoverableTripData.distanceKm || 0);
