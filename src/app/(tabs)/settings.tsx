@@ -9,17 +9,14 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Gauge, Shield, Bell, Database, Download, RotateCcw, Smartphone, Palette } from 'lucide-react-native';
-import CYANIDE_THEME from '../../constants/colors';
+import { Gauge, Shield, Bell, Download, RotateCcw, Smartphone, Palette } from 'lucide-react-native';
 import { useSettings } from '../../context/SettingsContext';
 import { dbService } from '../../database/db';
 import { ExportService } from '../../services/exportService';
-
 import { Stack } from 'expo-router';
 
 export default function SettingsScreen() {
-  const { settings, updateSettings } = useSettings();
+  const { settings, updateSettings, theme } = useSettings();
   const [speedLimitText, setSpeedLimitText] = useState(settings.speedLimitKmh.toString());
 
   const handleSpeedLimitChange = (text: string) => {
@@ -56,16 +53,16 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Stack.Screen
         options={{
           title: 'SETTINGS',
           headerShown: true,
-          headerStyle: { backgroundColor: CYANIDE_THEME.card },
+          headerStyle: { backgroundColor: theme.card },
           headerTitleStyle: {
             fontFamily: 'monospace',
             fontWeight: '900',
-            color: CYANIDE_THEME.textPrimary,
+            color: theme.textPrimary,
             fontSize: 16,
           },
         }}
@@ -73,23 +70,24 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
         {/* Section 1: Theme & Display */}
-        <Text style={styles.sectionTitle}>THEME & DISPLAY</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>THEME & DISPLAY</Text>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Palette size={18} color={CYANIDE_THEME.primary} />
-              <Text style={styles.rowLabel}>THEME MODE</Text>
+              <Palette size={18} color={theme.primary} />
+              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>THEME MODE</Text>
             </View>
 
-            <View style={styles.segmentedControl}>
+            <View style={[styles.segmentedControl, { backgroundColor: theme.cardHover }]}>
               <TouchableOpacity
-                style={[styles.segmentBtn, settings.themeMode === 'dark' && styles.segmentActive]}
+                style={[styles.segmentBtn, settings.themeMode === 'dark' && { backgroundColor: theme.primary }]}
                 onPress={() => updateSettings({ themeMode: 'dark' })}
               >
                 <Text
                   style={[
                     styles.segmentText,
-                    settings.themeMode === 'dark' && styles.segmentTextActive,
+                    { color: theme.textMuted },
+                    settings.themeMode === 'dark' && { color: theme.bg },
                   ]}
                 >
                   DARK
@@ -97,13 +95,14 @@ export default function SettingsScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.segmentBtn, settings.themeMode === 'light' && styles.segmentActive]}
+                style={[styles.segmentBtn, settings.themeMode === 'light' && { backgroundColor: theme.primary }]}
                 onPress={() => updateSettings({ themeMode: 'light' })}
               >
                 <Text
                   style={[
                     styles.segmentText,
-                    settings.themeMode === 'light' && styles.segmentTextActive,
+                    { color: theme.textMuted },
+                    settings.themeMode === 'light' && { color: theme.bg },
                   ]}
                 >
                   LIGHT
@@ -111,13 +110,14 @@ export default function SettingsScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.segmentBtn, settings.themeMode === 'system' && styles.segmentActive]}
+                style={[styles.segmentBtn, settings.themeMode === 'system' && { backgroundColor: theme.primary }]}
                 onPress={() => updateSettings({ themeMode: 'system' })}
               >
                 <Text
                   style={[
                     styles.segmentText,
-                    settings.themeMode === 'system' && styles.segmentTextActive,
+                    { color: theme.textMuted },
+                    settings.themeMode === 'system' && { color: theme.bg },
                   ]}
                 >
                   SYSTEM
@@ -126,21 +126,22 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <View style={[styles.row, styles.borderTop]}>
+          <View style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.cardBorder }]}>
             <View style={styles.rowLeft}>
-              <Gauge size={18} color={CYANIDE_THEME.primary} />
-              <Text style={styles.rowLabel}>SPEED & DISTANCE UNITS</Text>
+              <Gauge size={18} color={theme.primary} />
+              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>SPEED & DISTANCE UNITS</Text>
             </View>
 
-            <View style={styles.segmentedControl}>
+            <View style={[styles.segmentedControl, { backgroundColor: theme.cardHover }]}>
               <TouchableOpacity
-                style={[styles.segmentBtn, settings.speedUnit === 'kmh' && styles.segmentActive]}
+                style={[styles.segmentBtn, settings.speedUnit === 'kmh' && { backgroundColor: theme.primary }]}
                 onPress={() => updateSettings({ speedUnit: 'kmh', distanceUnit: 'km' })}
               >
                 <Text
                   style={[
                     styles.segmentText,
-                    settings.speedUnit === 'kmh' && styles.segmentTextActive,
+                    { color: theme.textMuted },
+                    settings.speedUnit === 'kmh' && { color: theme.bg },
                   ]}
                 >
                   KM/H
@@ -148,13 +149,14 @@ export default function SettingsScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.segmentBtn, settings.speedUnit === 'mph' && styles.segmentActive]}
+                style={[styles.segmentBtn, settings.speedUnit === 'mph' && { backgroundColor: theme.primary }]}
                 onPress={() => updateSettings({ speedUnit: 'mph', distanceUnit: 'mi' })}
               >
                 <Text
                   style={[
                     styles.segmentText,
-                    settings.speedUnit === 'mph' && styles.segmentTextActive,
+                    { color: theme.textMuted },
+                    settings.speedUnit === 'mph' && { color: theme.bg },
                   ]}
                 >
                   MPH
@@ -165,26 +167,26 @@ export default function SettingsScreen() {
         </View>
 
         {/* Section 2: Speed Alert Limits */}
-        <Text style={styles.sectionTitle}>SPEED ALERTS</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>SPEED ALERTS</Text>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Bell size={18} color={CYANIDE_THEME.warning} />
-              <Text style={styles.rowLabel}>ENABLE SPEED ALERT</Text>
+              <Bell size={18} color={theme.warning} />
+              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>ENABLE SPEED ALERT</Text>
             </View>
             <Switch
               value={settings.speedAlertEnabled}
               onValueChange={(val) => updateSettings({ speedAlertEnabled: val })}
-              trackColor={{ false: '#26262c', true: CYANIDE_THEME.primary }}
-              thumbColor={CYANIDE_THEME.textPrimary}
+              trackColor={{ false: theme.cardHover, true: theme.primary }}
+              thumbColor={theme.textPrimary}
             />
           </View>
 
           {settings.speedAlertEnabled && (
-            <View style={[styles.row, styles.borderTop]}>
-              <Text style={styles.rowLabel}>ALERT LIMIT ({settings.speedUnit.toUpperCase()})</Text>
+            <View style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.cardBorder }]}>
+              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>ALERT LIMIT ({settings.speedUnit.toUpperCase()})</Text>
               <TextInput
-                style={styles.limitInput}
+                style={[styles.limitInput, { backgroundColor: theme.cardHover, color: theme.primary }]}
                 keyboardType="numeric"
                 value={speedLimitText}
                 onChangeText={handleSpeedLimitChange}
@@ -194,49 +196,52 @@ export default function SettingsScreen() {
         </View>
 
         {/* Section 3: GPS & Auto Pause */}
-        <Text style={styles.sectionTitle}>GPS & TRACKING</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>GPS & TRACKING</Text>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Shield size={18} color={CYANIDE_THEME.primary} />
-              <Text style={styles.rowLabel}>AUTO-PAUSE WHEN STOPPED</Text>
+              <Shield size={18} color={theme.primary} />
+              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>AUTO-PAUSE WHEN STOPPED</Text>
             </View>
             <Switch
               value={settings.autoPauseEnabled}
               onValueChange={(val) => updateSettings({ autoPauseEnabled: val })}
-              trackColor={{ false: '#26262c', true: CYANIDE_THEME.primary }}
-              thumbColor={CYANIDE_THEME.textPrimary}
+              trackColor={{ false: theme.cardHover, true: theme.primary }}
+              thumbColor={theme.textPrimary}
             />
           </View>
 
-          <View style={[styles.row, styles.borderTop]}>
+          <View style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.cardBorder }]}>
             <View style={styles.rowLeft}>
-              <Smartphone size={18} color={CYANIDE_THEME.primaryGlow} />
-              <Text style={styles.rowLabel}>DEMO SIMULATION MODE</Text>
+              <Smartphone size={18} color={theme.primaryGlow} />
+              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>DEMO SIMULATION MODE</Text>
             </View>
             <Switch
               value={settings.simulatedRideMode}
               onValueChange={(val) => updateSettings({ simulatedRideMode: val })}
-              trackColor={{ false: '#26262c', true: CYANIDE_THEME.primary }}
-              thumbColor={CYANIDE_THEME.textPrimary}
+              trackColor={{ false: theme.cardHover, true: theme.primary }}
+              thumbColor={theme.textPrimary}
             />
           </View>
         </View>
 
         {/* Section 4: Data Export & Ownership */}
-        <Text style={styles.sectionTitle}>OFFLINE DATA PORTABILITY</Text>
-        <View style={styles.card}>
+        <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>OFFLINE DATA PORTABILITY</Text>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <TouchableOpacity style={styles.row} onPress={handleFullBackup}>
             <View style={styles.rowLeft}>
-              <Download size={18} color={CYANIDE_THEME.primary} />
-              <Text style={styles.rowLabel}>EXPORT FULL JSON BACKUP</Text>
+              <Download size={18} color={theme.primary} />
+              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>EXPORT FULL JSON BACKUP</Text>
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.row, styles.borderTop]} onPress={handleResetData}>
+          <TouchableOpacity
+            style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.cardBorder }]}
+            onPress={handleResetData}
+          >
             <View style={styles.rowLeft}>
-              <RotateCcw size={18} color={CYANIDE_THEME.danger} />
-              <Text style={[styles.rowLabel, { color: CYANIDE_THEME.danger }]}>
+              <RotateCcw size={18} color={theme.danger} />
+              <Text style={[styles.rowLabel, { color: theme.danger }]}>
                 RESET DATABASE & RE-SEED
               </Text>
             </View>
@@ -245,54 +250,34 @@ export default function SettingsScreen() {
 
         {/* App Info Footer */}
         <View style={styles.appInfo}>
-          <Text style={styles.appTitle}>RideMeter v1.0.0 (Cyanide Edition)</Text>
-          <Text style={styles.appDesc}>Strictly Offline-First • SQLite Storage • Phone GPS Engine</Text>
+          <Text style={[styles.appTitle, { color: theme.textMuted }]}>RideMeter v1.0.0 (Cyanide Edition)</Text>
+          <Text style={[styles.appDesc, { color: theme.textMuted }]}>Strictly Offline-First • SQLite Storage • Phone GPS Engine</Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: CYANIDE_THEME.bg,
   },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 24,
   },
-  header: {
-    marginBottom: 16,
-  },
-  title: {
-    fontFamily: 'monospace',
-    fontSize: 22,
-    fontWeight: '900',
-    color: CYANIDE_THEME.textPrimary,
-    letterSpacing: 1,
-  },
-  subtitle: {
-    fontFamily: 'monospace',
-    fontSize: 11,
-    color: CYANIDE_THEME.textMuted,
-    marginTop: 2,
-  },
   sectionTitle: {
     fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '800',
-    color: CYANIDE_THEME.textMuted,
     letterSpacing: 1,
     marginBottom: 8,
     marginTop: 10,
   },
   card: {
-    backgroundColor: CYANIDE_THEME.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
     marginBottom: 14,
     overflow: 'hidden',
   },
@@ -301,10 +286,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 14,
-  },
-  borderTop: {
-    borderTopWidth: 1,
-    borderTopColor: CYANIDE_THEME.cardBorder,
   },
   rowLeft: {
     flexDirection: 'row',
@@ -315,11 +296,9 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 12,
     fontWeight: '800',
-    color: CYANIDE_THEME.textPrimary,
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: '#26262c',
     borderRadius: 8,
     padding: 2,
   },
@@ -328,28 +307,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
   },
-  segmentActive: {
-    backgroundColor: CYANIDE_THEME.primary,
-  },
   segmentText: {
     fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '800',
-    color: CYANIDE_THEME.textMuted,
-  },
-  segmentTextActive: {
-    color: CYANIDE_THEME.bg,
   },
   limitInput: {
     width: 60,
-    backgroundColor: '#26262c',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
     fontFamily: 'monospace',
     fontSize: 13,
     fontWeight: '800',
-    color: CYANIDE_THEME.primary,
     textAlign: 'center',
   },
   appInfo: {
@@ -361,11 +331,9 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 12,
     fontWeight: '800',
-    color: CYANIDE_THEME.textMuted,
   },
   appDesc: {
     fontFamily: 'monospace',
     fontSize: 10,
-    color: CYANIDE_THEME.textMuted,
   },
 });

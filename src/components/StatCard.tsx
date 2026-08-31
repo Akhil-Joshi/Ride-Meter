@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import CYANIDE_THEME from '../constants/colors';
+import { useSettings } from '../context/SettingsContext';
 
 interface StatCardProps {
   label: string;
@@ -11,15 +11,31 @@ interface StatCardProps {
 }
 
 export const StatCard: React.FC<StatCardProps> = ({ label, value, unit, icon, highlight = false }) => {
+  const { theme } = useSettings();
+
   return (
-    <View style={[styles.card, highlight && styles.highlightCard]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: theme.card, borderColor: theme.cardBorder },
+        highlight && { borderColor: theme.primary, backgroundColor: theme.cardHover },
+      ]}
+    >
       <View style={styles.header}>
         {icon}
-        <Text style={styles.label}>{label}</Text>
+        <Text style={[styles.label, { color: theme.textMuted }]}>{label}</Text>
       </View>
       <View style={styles.valueRow}>
-        <Text style={[styles.value, highlight && styles.highlightValue]}>{value}</Text>
-        {unit && <Text style={styles.unit}>{unit}</Text>}
+        <Text
+          style={[
+            styles.value,
+            { color: theme.textPrimary },
+            highlight && { color: theme.primary },
+          ]}
+        >
+          {value}
+        </Text>
+        {unit && <Text style={[styles.unit, { color: theme.textSecondary }]}>{unit}</Text>}
       </View>
     </View>
   );
@@ -28,15 +44,9 @@ export const StatCard: React.FC<StatCardProps> = ({ label, value, unit, icon, hi
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    backgroundColor: CYANIDE_THEME.card,
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
-  },
-  highlightCard: {
-    borderColor: CYANIDE_THEME.primary,
-    backgroundColor: CYANIDE_THEME.cardHover,
   },
   header: {
     flexDirection: 'row',
@@ -48,7 +58,6 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '700',
-    color: CYANIDE_THEME.textMuted,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
@@ -61,15 +70,10 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 22,
     fontWeight: '800',
-    color: CYANIDE_THEME.textPrimary,
-  },
-  highlightValue: {
-    color: CYANIDE_THEME.primary,
   },
   unit: {
     fontFamily: 'monospace',
     fontSize: 12,
     fontWeight: '600',
-    color: CYANIDE_THEME.textSecondary,
   },
 });

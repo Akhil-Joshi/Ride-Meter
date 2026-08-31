@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Navigation, Wifi, AlertTriangle, ShieldCheck } from 'lucide-react-native';
-import CYANIDE_THEME from '../constants/colors';
 import { GPSQuality } from '../context/TripContext';
+import { useSettings } from '../context/SettingsContext';
 
 interface GPSStatusBadgeProps {
   status: GPSQuality;
@@ -11,35 +11,37 @@ interface GPSStatusBadgeProps {
 }
 
 export const GPSStatusBadge: React.FC<GPSStatusBadgeProps> = ({ status, accuracy, simulated = false }) => {
-  let color = CYANIDE_THEME.success;
+  const { theme } = useSettings();
+
+  let color = theme.success;
   let text = 'GPS LOCKED';
-  let icon = <ShieldCheck size={14} color={CYANIDE_THEME.success} />;
+  let icon = <ShieldCheck size={14} color={theme.success} />;
 
   if (simulated) {
-    color = CYANIDE_THEME.primary;
+    color = theme.primary;
     text = 'SIMULATED GPS';
-    icon = <Navigation size={14} color={CYANIDE_THEME.primary} />;
+    icon = <Navigation size={14} color={theme.primary} />;
   } else if (status === 'weak') {
-    color = CYANIDE_THEME.warning;
+    color = theme.warning;
     text = 'WEAK SIGNAL';
-    icon = <Wifi size={14} color={CYANIDE_THEME.warning} />;
+    icon = <Wifi size={14} color={theme.warning} />;
   } else if (status === 'searching') {
-    color = CYANIDE_THEME.warning;
+    color = theme.warning;
     text = 'SEARCHING SATELLITES...';
-    icon = <Wifi size={14} color={CYANIDE_THEME.warning} />;
+    icon = <Wifi size={14} color={theme.warning} />;
   } else if (status === 'disabled') {
-    color = CYANIDE_THEME.danger;
+    color = theme.danger;
     text = 'GPS NO SIGNAL';
-    icon = <AlertTriangle size={14} color={CYANIDE_THEME.danger} />;
+    icon = <AlertTriangle size={14} color={theme.danger} />;
   }
 
   return (
-    <View style={[styles.badge, { borderColor: color }]}>
+    <View style={[styles.badge, { backgroundColor: theme.card, borderColor: color }]}>
       <View style={styles.left}>
         {icon}
         <Text style={[styles.statusText, { color }]}>{text}</Text>
       </View>
-      <Text style={styles.accuracyText}>±{accuracy}m</Text>
+      <Text style={[styles.accuracyText, { color: theme.textMuted }]}>±{accuracy}m</Text>
     </View>
   );
 };
@@ -49,7 +51,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: CYANIDE_THEME.card,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -70,6 +71,5 @@ const styles = StyleSheet.create({
   accuracyText: {
     fontFamily: 'monospace',
     fontSize: 11,
-    color: CYANIDE_THEME.textMuted,
   },
 });

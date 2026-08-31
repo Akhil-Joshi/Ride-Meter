@@ -17,7 +17,7 @@ export const SpeedometerGauge: React.FC<SpeedometerGaugeProps> = ({
   isAlert = false,
   unitLabel = 'KM/H',
 }) => {
-  const { settings } = useSettings();
+  const { settings, theme } = useSettings();
 
   const size = 300;
   const strokeWidth = 14;
@@ -132,7 +132,7 @@ export const SpeedometerGauge: React.FC<SpeedometerGaugeProps> = ({
         {/* Outer Background Arc */}
         <Path
           d={bgArcPath}
-          stroke={CYANIDE_THEME.gaugeArcBg}
+          stroke={theme.gaugeArcBg}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           fill="none"
@@ -163,7 +163,7 @@ export const SpeedometerGauge: React.FC<SpeedometerGaugeProps> = ({
         {/* Dynamic Needle Blade */}
         <Path
           d={needlePath}
-          fill={isAlert ? CYANIDE_THEME.danger : CYANIDE_THEME.primary}
+          fill={isAlert ? theme.danger : theme.primary}
           opacity={0.9}
         />
 
@@ -172,19 +172,19 @@ export const SpeedometerGauge: React.FC<SpeedometerGaugeProps> = ({
           cx={center}
           cy={center}
           r="14"
-          fill={CYANIDE_THEME.card}
-          stroke={isAlert ? CYANIDE_THEME.danger : CYANIDE_THEME.primary}
+          fill={theme.card}
+          stroke={isAlert ? theme.danger : theme.primary}
           strokeWidth="3"
         />
-        <Circle cx={center} cy={center} r="5" fill={CYANIDE_THEME.primaryGlow} />
+        <Circle cx={center} cy={center} r="5" fill={theme.primaryGlow} />
       </Svg>
 
       {/* Digital Speed Center Readout */}
       <View style={styles.centerReadout}>
-        <Text style={[styles.speedText, isAlert && styles.speedTextAlert]}>
+        <Text style={[styles.speedText, { color: theme.textPrimary }, isAlert && styles.speedTextAlert]}>
           {Math.round(speed)}
         </Text>
-        <Text style={[styles.unitText, isAlert && styles.unitTextAlert]}>
+        <Text style={[styles.unitText, { color: theme.primary }, isAlert && styles.unitTextAlert]}>
           {unitLabel}
         </Text>
       </View>

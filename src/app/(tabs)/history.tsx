@@ -4,20 +4,21 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { TripCard } from '../../components/TripCard';
-import CYANIDE_THEME from '../../constants/colors';
 import { dbService } from '../../database/db';
 import { ExportService } from '../../services/exportService';
 import { Trip } from '../../utils/mockData';
+import { useSettings } from '../../context/SettingsContext';
 
 export default function HistoryScreen() {
+  const { theme } = useSettings();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,59 +71,78 @@ export default function HistoryScreen() {
   const categories = ['All', '⭐ Favorites', 'Personal', 'Commute', 'Tour'];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Stack.Screen
         options={{
           title: 'LOGS',
           headerShown: true,
-          headerStyle: { backgroundColor: CYANIDE_THEME.card },
+          headerStyle: { backgroundColor: theme.card },
           headerTitleStyle: {
             fontFamily: 'monospace',
             fontWeight: '900',
-            color: CYANIDE_THEME.textPrimary,
+            color: theme.textPrimary,
             fontSize: 16,
           },
           headerRight: () => (
-            <TouchableOpacity style={styles.exportBtn} onPress={handleExportCSV}>
-              <Download size={14} color={CYANIDE_THEME.primary} />
-              <Text style={styles.exportBtnText}>EXPORT CSV</Text>
+            <TouchableOpacity
+              style={[styles.exportBtn, { backgroundColor: theme.card, borderColor: theme.primary }]}
+              onPress={handleExportCSV}
+            >
+              <Download size={14} color={theme.primary} />
+              <Text style={[styles.exportBtnText, { color: theme.primary }]}>EXPORT CSV</Text>
             </TouchableOpacity>
           ),
         }}
       />
-      <View style={styles.container}>
+      <View style={styles.mainContent}>
 
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Search size={16} color={CYANIDE_THEME.textMuted} />
+        <View style={[styles.searchContainer, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <Search size={16} color={theme.textMuted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.textPrimary }]}
             placeholder="Search notes or categories..."
-            placeholderTextColor={CYANIDE_THEME.textMuted}
+            placeholderTextColor={theme.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
 
-        {/* Category Filters */}
-        <View style={styles.filterRow}>
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={[styles.filterChip, selectedFilter === cat && styles.filterChipActive]}
-              onPress={() => setSelectedFilter(cat)}
-            >
-              <Text style={[styles.filterText, selectedFilter === cat && styles.filterTextActive]}>
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        {/* Horizontally Scrollable Category Filter Badges */}
+        <View style={styles.filterRowWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScroll}
+          >
+            {categories.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                style={[
+                  styles.filterChip,
+                  { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                  selectedFilter === cat && { borderColor: theme.primary, backgroundColor: theme.cardHover },
+                ]}
+                onPress={() => setSelectedFilter(cat)}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    { color: theme.textMuted },
+                    selectedFilter === cat && { color: theme.primary },
+                  ]}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
         {/* Trips List */}
         {loading ? (
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={CYANIDE_THEME.primary} />
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         ) : (
           <FlatList
@@ -138,52 +158,30 @@ export default function HistoryScreen() {
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No rides found in history.</Text>
+                <Text style={[styles.emptyText, { color: theme.textMuted }]}>No rides found in history.</Text>
               </View>
             }
           />
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: CYANIDE_THEME.bg,
-  },
   container: {
+    flex: 1,
+  },
+  mainContent: {
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 12,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  title: {
-    fontFamily: 'monospace',
-    fontSize: 22,
-    fontWeight: '900',
-    color: CYANIDE_THEME.textPrimary,
-    letterSpacing: 1,
-  },
-  subtitle: {
-    fontFamily: 'monospace',
-    fontSize: 11,
-    color: CYANIDE_THEME.textMuted,
-    marginTop: 2,
   },
   exportBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: CYANIDE_THEME.card,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.primary,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
@@ -192,17 +190,14 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 10,
     fontWeight: '800',
-    color: CYANIDE_THEME.primary,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: CYANIDE_THEME.card,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
     marginBottom: 12,
     gap: 8,
   },
@@ -210,33 +205,25 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'monospace',
     fontSize: 13,
-    color: CYANIDE_THEME.textPrimary,
   },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
+  filterRowWrapper: {
     marginBottom: 14,
   },
+  filterScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingRight: 16,
+  },
   filterChip: {
-    backgroundColor: CYANIDE_THEME.card,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
-  },
-  filterChipActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: CYANIDE_THEME.primary,
   },
   filterText: {
     fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '700',
-    color: CYANIDE_THEME.textMuted,
-  },
-  filterTextActive: {
-    color: CYANIDE_THEME.primary,
   },
   listContent: {
     paddingBottom: 24,
@@ -253,6 +240,5 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: 'monospace',
     fontSize: 13,
-    color: CYANIDE_THEME.textMuted,
   },
 });

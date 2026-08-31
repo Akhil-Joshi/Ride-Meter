@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { AlertTriangle } from 'lucide-react-native';
-import CYANIDE_THEME from '../constants/colors';
+import { useSettings } from '../context/SettingsContext';
 
 interface SpeedAlertBannerProps {
   currentSpeed: number;
@@ -10,9 +10,11 @@ interface SpeedAlertBannerProps {
 }
 
 export const SpeedAlertBanner: React.FC<SpeedAlertBannerProps> = ({ currentSpeed, speedLimit, unit }) => {
+  const { theme } = useSettings();
+
   return (
-    <View style={styles.banner}>
-      <AlertTriangle size={20} color={CYANIDE_THEME.textPrimary} />
+    <View style={[styles.banner, { backgroundColor: theme.danger }]}>
+      <AlertTriangle size={20} color="#ffffff" />
       <Text style={styles.alertText}>
         SPEED ALERT! {Math.round(currentSpeed)} {unit} (LIMIT: {speedLimit} {unit})
       </Text>
@@ -25,7 +27,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: CYANIDE_THEME.danger,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 12,
@@ -37,7 +38,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 13,
     fontWeight: '900',
-    color: CYANIDE_THEME.textPrimary,
+    color: '#ffffff',
     letterSpacing: 1,
   },
 });

@@ -1,23 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Modal,
+  TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bike, Fuel, Wrench, Plus, Gauge, Check } from 'lucide-react-native';
-import CYANIDE_THEME from '../../constants/colors';
+import { Bike, Fuel, Wrench, Plus, Gauge } from 'lucide-react-native';
 import { dbService } from '../../database/db';
 import { Bike as BikeType, FuelLog, Maintenance } from '../../utils/mockData';
 import { FuelCard } from '../../components/FuelCard';
 import { MaintenanceCard } from '../../components/MaintenanceCard';
 import { useFocusEffect, Stack } from 'expo-router';
+import { useSettings } from '../../context/SettingsContext';
 
 export default function GarageScreen() {
+  const { theme } = useSettings();
   const [bikes, setBikes] = useState<BikeType[]>([]);
   const [activeBike, setActiveBike] = useState<BikeType | null>(null);
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
@@ -95,16 +95,16 @@ export default function GarageScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Stack.Screen
         options={{
           title: 'GARAGE & SERVICE',
           headerShown: true,
-          headerStyle: { backgroundColor: CYANIDE_THEME.card },
+          headerStyle: { backgroundColor: theme.card },
           headerTitleStyle: {
             fontFamily: 'monospace',
             fontWeight: '900',
-            color: CYANIDE_THEME.textPrimary,
+            color: theme.textPrimary,
             fontSize: 16,
           },
         }}
@@ -113,36 +113,36 @@ export default function GarageScreen() {
 
         {/* Bike Profile Card */}
         {activeBike && (
-          <View style={styles.bikeCard}>
+          <View style={[styles.bikeCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={styles.bikeHeader}>
-              <View style={styles.bikeIconBox}>
-                <Bike size={24} color={CYANIDE_THEME.primary} />
+              <View style={[styles.bikeIconBox, { backgroundColor: theme.glowBg, borderColor: theme.primary }]}>
+                <Bike size={24} color={theme.primary} />
               </View>
               <View style={styles.bikeTitleBox}>
-                <Text style={styles.bikeName}>{activeBike.name}</Text>
-                <Text style={styles.bikeSub}>
+                <Text style={[styles.bikeName, { color: theme.textPrimary }]}>{activeBike.name}</Text>
+                <Text style={[styles.bikeSub, { color: theme.textMuted }]}>
                   {activeBike.make} {activeBike.model} ({activeBike.year})
                 </Text>
               </View>
             </View>
 
-            <View style={styles.odoContainer}>
+            <View style={[styles.odoContainer, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder }]}>
               <View style={styles.odoBox}>
-                <Gauge size={14} color={CYANIDE_THEME.primary} />
-                <Text style={styles.odoLabel}>DIGITAL ODOMETER</Text>
+                <Gauge size={14} color={theme.primary} />
+                <Text style={[styles.odoLabel, { color: theme.textMuted }]}>DIGITAL ODOMETER</Text>
               </View>
-              <Text style={styles.odoVal}>{activeBike.current_odometer.toLocaleString()} km</Text>
+              <Text style={[styles.odoVal, { color: theme.primary }]}>{activeBike.current_odometer.toLocaleString()} km</Text>
             </View>
           </View>
         )}
 
         {/* Fuel Economy Highlights */}
-        <View style={styles.efficiencyCard}>
+        <View style={[styles.efficiencyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <View style={styles.effLeft}>
-            <Fuel size={20} color={CYANIDE_THEME.primary} />
+            <Fuel size={20} color={theme.primary} />
             <View>
-              <Text style={styles.effVal}>{calculateAvgEconomy()} km/L</Text>
-              <Text style={styles.effLabel}>AVERAGE FUEL ECONOMY</Text>
+              <Text style={[styles.effVal, { color: theme.textPrimary }]}>{calculateAvgEconomy()} km/L</Text>
+              <Text style={[styles.effLabel, { color: theme.textMuted }]}>AVERAGE FUEL ECONOMY</Text>
             </View>
           </View>
         </View>
@@ -150,24 +150,32 @@ export default function GarageScreen() {
         {/* Sub-tabs for Fuel vs Maintenance */}
         <View style={styles.tabRow}>
           <TouchableOpacity
-            style={[styles.subTab, tab === 'fuel' && styles.subTabActive]}
+            style={[
+              styles.subTab,
+              { backgroundColor: theme.card, borderColor: theme.cardBorder },
+              tab === 'fuel' && { borderColor: theme.primary, backgroundColor: theme.cardHover },
+            ]}
             onPress={() => setTab('fuel')}
           >
-            <Fuel size={14} color={tab === 'fuel' ? CYANIDE_THEME.primary : CYANIDE_THEME.textMuted} />
-            <Text style={[styles.subTabText, tab === 'fuel' && styles.subTabTextActive]}>
+            <Fuel size={14} color={tab === 'fuel' ? theme.primary : theme.textMuted} />
+            <Text style={[styles.subTabText, { color: theme.textMuted }, tab === 'fuel' && { color: theme.primary }]}>
               FUEL LOGS ({fuelLogs.length})
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.subTab, tab === 'maintenance' && styles.subTabActive]}
+            style={[
+              styles.subTab,
+              { backgroundColor: theme.card, borderColor: theme.cardBorder },
+              tab === 'maintenance' && { borderColor: theme.primary, backgroundColor: theme.cardHover },
+            ]}
             onPress={() => setTab('maintenance')}
           >
             <Wrench
               size={14}
-              color={tab === 'maintenance' ? CYANIDE_THEME.primary : CYANIDE_THEME.textMuted}
+              color={tab === 'maintenance' ? theme.primary : theme.textMuted}
             />
-            <Text style={[styles.subTabText, tab === 'maintenance' && styles.subTabTextActive]}>
+            <Text style={[styles.subTabText, { color: theme.textMuted }, tab === 'maintenance' && { color: theme.primary }]}>
               MAINTENANCE ({maintenance.length})
             </Text>
           </TouchableOpacity>
@@ -175,11 +183,11 @@ export default function GarageScreen() {
 
         {/* Add Entry Button */}
         <TouchableOpacity
-          style={styles.addBtn}
+          style={[styles.addBtn, { backgroundColor: theme.primary }]}
           onPress={() => (tab === 'fuel' ? setShowFuelModal(true) : setShowMaintModal(true))}
         >
-          <Plus size={18} color={CYANIDE_THEME.bg} />
-          <Text style={styles.addBtnText}>
+          <Plus size={18} color={theme.bg} />
+          <Text style={[styles.addBtnText, { color: theme.bg }]}>
             {tab === 'fuel' ? 'ADD FUEL FILL-UP' : 'ADD SERVICE LOG'}
           </Text>
         </TouchableOpacity>
@@ -206,24 +214,24 @@ export default function GarageScreen() {
         {/* Add Fuel Modal */}
         <Modal visible={showFuelModal} transparent animationType="fade">
           <View style={styles.modalBg}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>LOG FUEL FILL-UP</Text>
+            <View style={[styles.modalContent, { backgroundColor: theme.modalBg, borderColor: theme.cardBorder }]}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>LOG FUEL FILL-UP</Text>
 
-              <Text style={styles.inputLabel}>LITERS ADDED</Text>
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>LITERS ADDED</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
                 placeholder="e.g. 8.5"
-                placeholderTextColor={CYANIDE_THEME.textMuted}
+                placeholderTextColor={theme.textMuted}
                 keyboardType="numeric"
                 value={fuelLiters}
                 onChangeText={setFuelLiters}
               />
 
-              <Text style={styles.inputLabel}>TOTAL COST ($)</Text>
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>TOTAL COST ($)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
                 placeholder="e.g. 14.20"
-                placeholderTextColor={CYANIDE_THEME.textMuted}
+                placeholderTextColor={theme.textMuted}
                 keyboardType="numeric"
                 value={fuelCost}
                 onChangeText={setFuelCost}
@@ -231,13 +239,13 @@ export default function GarageScreen() {
 
               <View style={styles.modalBtnRow}>
                 <TouchableOpacity
-                  style={styles.modalCancel}
+                  style={[styles.modalCancel, { borderColor: theme.cardBorder }]}
                   onPress={() => setShowFuelModal(false)}
                 >
-                  <Text style={styles.modalCancelText}>CANCEL</Text>
+                  <Text style={[styles.modalCancelText, { color: theme.textMuted }]}>CANCEL</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.modalSave} onPress={handleAddFuel}>
-                  <Text style={styles.modalSaveText}>SAVE LOG</Text>
+                <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.primary }]} onPress={handleAddFuel}>
+                  <Text style={[styles.modalSaveText, { color: theme.bg }]}>SAVE LOG</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -247,32 +255,32 @@ export default function GarageScreen() {
         {/* Add Maintenance Modal */}
         <Modal visible={showMaintModal} transparent animationType="fade">
           <View style={styles.modalBg}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>LOG MAINTENANCE</Text>
+            <View style={[styles.modalContent, { backgroundColor: theme.modalBg, borderColor: theme.cardBorder }]}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>LOG MAINTENANCE</Text>
 
-              <Text style={styles.inputLabel}>SERVICE TYPE</Text>
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>SERVICE TYPE</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
                 placeholder="e.g. Engine Oil / Chain Lube"
-                placeholderTextColor={CYANIDE_THEME.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={maintType}
                 onChangeText={setMaintType}
               />
 
-              <Text style={styles.inputLabel}>DESCRIPTION / NOTES</Text>
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>DESCRIPTION / NOTES</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
                 placeholder="e.g. Motul 10W40 synthetic"
-                placeholderTextColor={CYANIDE_THEME.textMuted}
+                placeholderTextColor={theme.textMuted}
                 value={maintDesc}
                 onChangeText={setMaintDesc}
               />
 
-              <Text style={styles.inputLabel}>NEXT SERVICE INTERVAL (KM)</Text>
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>NEXT SERVICE INTERVAL (KM)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
                 placeholder="e.g. 2000"
-                placeholderTextColor={CYANIDE_THEME.textMuted}
+                placeholderTextColor={theme.textMuted}
                 keyboardType="numeric"
                 value={maintInterval}
                 onChangeText={setMaintInterval}
@@ -280,55 +288,36 @@ export default function GarageScreen() {
 
               <View style={styles.modalBtnRow}>
                 <TouchableOpacity
-                  style={styles.modalCancel}
+                  style={[styles.modalCancel, { borderColor: theme.cardBorder }]}
                   onPress={() => setShowMaintModal(false)}
                 >
-                  <Text style={styles.modalCancelText}>CANCEL</Text>
+                  <Text style={[styles.modalCancelText, { color: theme.textMuted }]}>CANCEL</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.modalSave} onPress={handleAddMaintenance}>
-                  <Text style={styles.modalSaveText}>SAVE SERVICE</Text>
+                <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.primary }]} onPress={handleAddMaintenance}>
+                  <Text style={[styles.modalSaveText, { color: theme.bg }]}>SAVE SERVICE</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
         </Modal>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: CYANIDE_THEME.bg,
   },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 24,
   },
-  header: {
-    marginBottom: 14,
-  },
-  title: {
-    fontFamily: 'monospace',
-    fontSize: 22,
-    fontWeight: '900',
-    color: CYANIDE_THEME.textPrimary,
-    letterSpacing: 1,
-  },
-  subtitle: {
-    fontFamily: 'monospace',
-    fontSize: 11,
-    color: CYANIDE_THEME.textMuted,
-    marginTop: 2,
-  },
   bikeCard: {
-    backgroundColor: CYANIDE_THEME.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
     marginBottom: 12,
   },
   bikeHeader: {
@@ -341,11 +330,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
   },
   bikeTitleBox: {
     gap: 2,
@@ -354,22 +341,18 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 18,
     fontWeight: '900',
-    color: CYANIDE_THEME.textPrimary,
   },
   bikeSub: {
     fontFamily: 'monospace',
     fontSize: 12,
-    color: CYANIDE_THEME.textMuted,
   },
   odoContainer: {
-    backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 12,
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
   },
   odoBox: {
     flexDirection: 'row',
@@ -380,20 +363,16 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 10,
     fontWeight: '700',
-    color: CYANIDE_THEME.textMuted,
   },
   odoVal: {
     fontFamily: 'monospace',
     fontSize: 18,
     fontWeight: '900',
-    color: CYANIDE_THEME.primary,
   },
   efficiencyCard: {
-    backgroundColor: CYANIDE_THEME.card,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
     marginBottom: 14,
   },
   effLeft: {
@@ -405,13 +384,11 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 22,
     fontWeight: '900',
-    color: CYANIDE_THEME.textPrimary,
   },
   effLabel: {
     fontFamily: 'monospace',
     fontSize: 10,
     fontWeight: '700',
-    color: CYANIDE_THEME.textMuted,
   },
   tabRow: {
     flexDirection: 'row',
@@ -424,30 +401,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: CYANIDE_THEME.card,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
-  },
-  subTabActive: {
-    borderColor: CYANIDE_THEME.primary,
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
   },
   subTabText: {
     fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '800',
-    color: CYANIDE_THEME.textMuted,
-  },
-  subTabTextActive: {
-    color: CYANIDE_THEME.primary,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: CYANIDE_THEME.primary,
     paddingVertical: 12,
     borderRadius: 12,
     gap: 8,
@@ -457,7 +423,6 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 12,
     fontWeight: '900',
-    color: CYANIDE_THEME.bg,
   },
   modalBg: {
     flex: 1,
@@ -468,17 +433,14 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    backgroundColor: CYANIDE_THEME.modalBg,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
   },
   modalTitle: {
     fontFamily: 'monospace',
     fontSize: 16,
     fontWeight: '900',
-    color: CYANIDE_THEME.textPrimary,
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -486,20 +448,16 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 10,
     fontWeight: '700',
-    color: CYANIDE_THEME.textMuted,
     marginBottom: 4,
     marginTop: 8,
   },
   input: {
-    backgroundColor: CYANIDE_THEME.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: 'monospace',
     fontSize: 14,
-    color: CYANIDE_THEME.textPrimary,
   },
   modalBtnRow: {
     flexDirection: 'row',
@@ -511,18 +469,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
     alignItems: 'center',
   },
   modalCancelText: {
     fontFamily: 'monospace',
     fontSize: 12,
     fontWeight: '700',
-    color: CYANIDE_THEME.textMuted,
   },
   modalSave: {
     flex: 1,
-    backgroundColor: CYANIDE_THEME.primary,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
@@ -531,6 +486,5 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: 12,
     fontWeight: '900',
-    color: CYANIDE_THEME.bg,
   },
 });

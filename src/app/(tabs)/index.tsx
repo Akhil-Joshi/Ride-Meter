@@ -1,19 +1,17 @@
 import { router, Stack } from 'expo-router';
 import { Bike, Clock, Flame, Gauge, Navigation, Pause, Play, RefreshCw, Square } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { GPSStatusBadge } from '../../components/GPSStatusBadge';
 import { SpeedAlertBanner } from '../../components/SpeedAlertBanner';
 import { SpeedometerGauge } from '../../components/SpeedometerGauge';
 import { StatCard } from '../../components/StatCard';
-import CYANIDE_THEME from '../../constants/colors';
 import { useSettings } from '../../context/SettingsContext';
 import { useTrip } from '../../context/TripContext';
 import { dbService } from '../../database/db';
@@ -24,7 +22,6 @@ export default function RideDashboardScreen() {
   const {
     tripStatus,
     currentSpeed,
-    averageSpeed,
     maxSpeed,
     distanceKm,
     durationSeconds,
@@ -43,7 +40,7 @@ export default function RideDashboardScreen() {
     discardRecoveredRide,
   } = useTrip();
 
-  const { settings, updateSettings } = useSettings();
+  const { settings, updateSettings, theme } = useSettings();
   const [activeBike, setActiveBike] = useState<BikeType | null>(null);
 
   useEffect(() => {
@@ -59,17 +56,24 @@ export default function RideDashboardScreen() {
     }
   };
 
+  const displaySpeed =
+    settings.speedUnit === 'mph' ? currentSpeed * 0.621371 : currentSpeed;
+  const displayMaxSpeed =
+    settings.speedUnit === 'mph' ? maxSpeed * 0.621371 : maxSpeed;
+  const displaySpeedLimit =
+    settings.speedUnit === 'mph' ? settings.speedLimitKmh * 0.621371 : settings.speedLimitKmh;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Stack.Screen
         options={{
           title: 'DASHBOARD',
           headerShown: true,
-          headerStyle: { backgroundColor: CYANIDE_THEME.card },
+          headerStyle: { backgroundColor: theme.card },
           headerTitleStyle: {
             fontFamily: 'monospace',
             fontWeight: '900',
-            color: CYANIDE_THEME.textPrimary,
+            color: theme.textPrimary,
             fontSize: 16,
           },
           headerRight: () => (
@@ -82,72 +86,70 @@ export default function RideDashboardScreen() {
         }}
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Bike Status Pill */}
-        <View style={styles.headerBar}>
-          <View style={styles.bikeBadge}>
-            <Bike size={14} color={CYANIDE_THEME.primary} />
-            <Text style={styles.bikeText}>
-              {activeBike ? `${activeBike.name} • ODO ${activeBike.current_odometer.toLocaleString()} km` : 'RideMeter'}
-            </Text>
+
+        {/* Bike Selector Pill */}
+        {activeBike && (
+          <View style={styles.bikeRow}>
+            <View style={[styles.bikePill, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              <Bike size={14} color={theme.primary} />
+              <Text style={[styles.bikeText, { color: theme.textSecondary }]}>
+                {activeBike.name} ({activeBike.make} {activeBike.model})
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Crash Recovery Notification Banner */}
-        {hasRecoverableTrip && (
-          <View style={styles.recoveryBanner}>
-            <View style={styles.recoveryTextRow}>
-              <RefreshCw size={16} color={CYANIDE_THEME.warning} />
-              <Text style={styles.recoveryTitle}>Unfinished Ride Detected</Text>
+        {hasRecoverableTrip && tripStatus === 'idle' && (
+          <View style={[styles.recoveryBanner, { backgroundColor: theme.card, borderColor: theme.warning }]}>
+            <View style={styles.recoveryHeader}>
+              <RefreshCw size={16} color={theme.warning} />
+              <Text style={[styles.recoveryTitle, { color: theme.warning }]}>UNSAVED RIDE RECOVERED</Text>
             </View>
-            <Text style={styles.recoverySub}>
-              {recoverableTripData?.distanceKm?.toFixed(1)} km recorded • {formatDuration(recoverableTripData?.durationSeconds || 0)}
+            <Text style={[styles.recoveryText, { color: theme.textSecondary }]}>
+              Distance: {recoverableTripData?.distance_km.toFixed(1)} km • Duration:{' '}
+              {formatDuration(recoverableTripData?.duration_seconds || 0)}
             </Text>
-            <View style={styles.recoveryActionRow}>
-              <TouchableOpacity style={styles.recoverBtn} onPress={recoverRide}>
-                <Text style={styles.recoverBtnText}>RECOVER RIDE</Text>
+            <View style={styles.recoveryActions}>
+              <TouchableOpacity
+                style={[styles.recoveryBtnRestore, { backgroundColor: theme.warning }]}
+                onPress={recoverRide}
+              >
+                <Text style={[styles.recoveryBtnRestoreText, { color: theme.bg }]}>RESTORE RIDE</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.discardBtn} onPress={discardRecoveredRide}>
-                <Text style={styles.discardBtnText}>DISCARD</Text>
+              <TouchableOpacity
+                style={[styles.recoveryBtnDiscard, { borderColor: theme.cardBorder }]}
+                onPress={discardRecoveredRide}
+              >
+                <Text style={[styles.recoveryBtnDiscardText, { color: theme.textMuted }]}>DISCARD</Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* Speed Alert Overlay */}
+        {/* Speed Alert Active Banner */}
         {isSpeedAlertActive && (
           <SpeedAlertBanner
-            currentSpeed={currentSpeed}
-            speedLimit={settings.speedLimitKmh}
+            currentSpeed={displaySpeed}
+            speedLimit={Math.round(displaySpeedLimit)}
             unit={settings.speedUnit.toUpperCase()}
           />
         )}
 
-        {/* Demo Simulation Toggle Pill */}
-        <View style={styles.simRow}>
-          <TouchableOpacity
-            style={[styles.simToggle, settings.simulatedRideMode && styles.simToggleActive]}
-            onPress={() => updateSettings({ simulatedRideMode: !settings.simulatedRideMode })}
-          >
-            <Navigation size={12} color={settings.simulatedRideMode ? CYANIDE_THEME.textPrimary : CYANIDE_THEME.textMuted} />
-            <Text style={[styles.simText, settings.simulatedRideMode && styles.simTextActive]}>
-              {settings.simulatedRideMode ? 'SIMULATED GPS ON' : 'ENABLE DEMO GPS'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Core Speedometer Gauge */}
+        {/* Main High-Resolution SVG Gauge */}
         <SpeedometerGauge
-          speed={currentSpeed}
+          speed={displaySpeed}
+          maxRange={settings.speedUnit === 'mph' ? 140 : 200}
           isAlert={isSpeedAlertActive}
           unitLabel={settings.speedUnit.toUpperCase()}
         />
 
-        {/* Primary Ride Distance & Status Banner */}
-        <View style={styles.primaryDistanceCard}>
-          <Text style={styles.primaryDistanceVal}>
+        {/* Live Distance Hero Display */}
+        <View style={styles.distanceContainer}>
+          <Text style={[styles.distanceMain, { color: theme.textPrimary }]}>
             {formatDistance(distanceKm, settings.distanceUnit)}
           </Text>
-          <Text style={styles.primaryDistanceLabel}>
+          <Text style={[styles.distanceLabel, { color: theme.primary }]}>
             {tripStatus === 'active'
               ? 'LIVE TRIP DISTANCE'
               : tripStatus === 'paused'
@@ -156,306 +158,231 @@ export default function RideDashboardScreen() {
           </Text>
         </View>
 
-        {/* Real-time Metrics Grid */}
+        {/* 2x2 Key Metrics Grid */}
         <View style={styles.metricsGrid}>
-          <View style={styles.gridRow}>
+          <View style={styles.metricsRow}>
             <StatCard
-              label="AVG SPEED"
-              value={formatSpeed(averageSpeed, settings.speedUnit)}
+              label="AVERAGE SPEED"
+              value={formatSpeed(
+                movingSeconds > 0 ? (distanceKm / (movingSeconds / 3600)) : 0,
+                settings.speedUnit
+              )}
               unit={settings.speedUnit.toUpperCase()}
-              icon={<Gauge size={14} color={CYANIDE_THEME.primary} />}
+              icon={<Gauge size={14} color={theme.primary} />}
             />
             <StatCard
-              label="MAX SPEED"
-              value={formatSpeed(maxSpeed, settings.speedUnit)}
+              label="TOP MAX SPEED"
+              value={formatSpeed(displayMaxSpeed, settings.speedUnit)}
               unit={settings.speedUnit.toUpperCase()}
-              icon={<Flame size={14} color={CYANIDE_THEME.warning} />}
+              icon={<Flame size={14} color={theme.warning} />}
             />
           </View>
 
-          <View style={styles.gridRow}>
+          <View style={styles.metricsRow}>
             <StatCard
-              label="DURATION"
+              label="TRIP DURATION"
               value={formatDuration(durationSeconds)}
-              icon={<Clock size={14} color={CYANIDE_THEME.textMuted} />}
+              icon={<Clock size={14} color={theme.textMuted} />}
             />
             <StatCard
-              label="MOVING"
+              label="MOVING TIME"
               value={formatDuration(movingSeconds)}
-              icon={<Clock size={14} color={CYANIDE_THEME.primary} />}
-            />
-            <StatCard
-              label="STOPPED"
-              value={formatDuration(stoppedSeconds)}
-              icon={<Clock size={14} color={CYANIDE_THEME.danger} />}
+              icon={<Clock size={14} color={theme.primary} />}
             />
           </View>
         </View>
 
-        {/* Large Ergonomic Control Buttons */}
+        {/* Primary Ride Control Action Bar */}
         <View style={styles.controlsContainer}>
           {tripStatus === 'idle' && (
-            <TouchableOpacity style={styles.startBtn} onPress={startRide} activeOpacity={0.8}>
-              <Play size={26} color={CYANIDE_THEME.bg} fill={CYANIDE_THEME.bg} />
-              <Text style={styles.startBtnText}>START RIDE</Text>
+            <TouchableOpacity style={[styles.mainStartBtn, { backgroundColor: theme.primary }]} onPress={startRide}>
+              <Play size={26} color={theme.bg} fill={theme.bg} />
+              <Text style={[styles.mainStartBtnText, { color: theme.bg }]}>START RIDE</Text>
             </TouchableOpacity>
           )}
 
           {tripStatus === 'active' && (
-            <View style={styles.activeBtnGroup}>
-              <TouchableOpacity style={styles.pauseBtn} onPress={pauseRide} activeOpacity={0.8}>
-                <Pause size={22} color={CYANIDE_THEME.textPrimary} />
-                <Text style={styles.pauseBtnText}>PAUSE</Text>
+            <View style={styles.dualActionRow}>
+              <TouchableOpacity style={[styles.actionBtnSecondary, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={pauseRide}>
+                <Pause size={22} color={theme.textPrimary} />
+                <Text style={[styles.actionBtnSecondaryText, { color: theme.textPrimary }]}>PAUSE</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.endBtn} onPress={handleEndRide} activeOpacity={0.8}>
-                <Square size={22} color={CYANIDE_THEME.textPrimary} fill={CYANIDE_THEME.textPrimary} />
-                <Text style={styles.endBtnText}>END RIDE</Text>
+              <TouchableOpacity style={[styles.actionBtnStop, { backgroundColor: theme.danger }]} onPress={handleEndRide}>
+                <Square size={22} color="#ffffff" fill="#ffffff" />
+                <Text style={styles.actionBtnStopText}>END RIDE</Text>
               </TouchableOpacity>
             </View>
           )}
 
           {tripStatus === 'paused' && (
-            <View style={styles.activeBtnGroup}>
-              <TouchableOpacity style={styles.resumeBtn} onPress={resumeRide} activeOpacity={0.8}>
-                <Play size={22} color={CYANIDE_THEME.bg} fill={CYANIDE_THEME.bg} />
-                <Text style={styles.resumeBtnText}>RESUME</Text>
+            <View style={styles.dualActionRow}>
+              <TouchableOpacity style={[styles.mainStartBtn, { flex: 1, backgroundColor: theme.primary }]} onPress={resumeRide}>
+                <Play size={22} color={theme.bg} fill={theme.bg} />
+                <Text style={[styles.mainStartBtnText, { color: theme.bg }]}>RESUME</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.endBtn} onPress={handleEndRide} activeOpacity={0.8}>
-                <Square size={22} color={CYANIDE_THEME.textPrimary} fill={CYANIDE_THEME.textPrimary} />
-                <Text style={styles.endBtnText}>END RIDE</Text>
+              <TouchableOpacity style={[styles.actionBtnStop, { backgroundColor: theme.danger }]} onPress={handleEndRide}>
+                <Square size={22} color="#ffffff" fill="#ffffff" />
+                <Text style={styles.actionBtnStopText}>END</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: CYANIDE_THEME.bg,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingBottom: 24,
   },
-  headerBar: {
-    flexDirection: 'row',
+  bikeRow: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  bikeBadge: {
+  bikePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: CYANIDE_THEME.card,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
   },
   bikeText: {
     fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '700',
-    color: CYANIDE_THEME.textSecondary,
-  },
-  simRow: {
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  simToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
-  },
-  simToggleActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: CYANIDE_THEME.primary,
-  },
-  simText: {
-    fontFamily: 'monospace',
-    fontSize: 10,
-    fontWeight: '700',
-    color: CYANIDE_THEME.textMuted,
-  },
-  simTextActive: {
-    color: CYANIDE_THEME.primary,
   },
   recoveryBanner: {
-    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    borderWidth: 1,
-    borderColor: CYANIDE_THEME.warning,
     borderRadius: 14,
-    padding: 12,
+    padding: 14,
+    borderWidth: 1,
     marginBottom: 12,
   },
-  recoveryTextRow: {
+  recoveryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 4,
   },
   recoveryTitle: {
     fontFamily: 'monospace',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
-    color: CYANIDE_THEME.warning,
+    letterSpacing: 0.5,
   },
-  recoverySub: {
+  recoveryText: {
     fontFamily: 'monospace',
     fontSize: 11,
-    color: CYANIDE_THEME.textSecondary,
-    marginVertical: 4,
+    marginBottom: 10,
   },
-  recoveryActionRow: {
+  recoveryActions: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
+    gap: 8,
   },
-  recoverBtn: {
-    flex: 1,
-    backgroundColor: CYANIDE_THEME.warning,
-    paddingVertical: 8,
+  recoveryBtnRestore: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
-    alignItems: 'center',
   },
-  recoverBtnText: {
+  recoveryBtnRestoreText: {
     fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '900',
-    color: CYANIDE_THEME.bg,
   },
-  discardBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  recoveryBtnDiscard: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
-    alignItems: 'center',
   },
-  discardBtnText: {
+  recoveryBtnDiscardText: {
     fontFamily: 'monospace',
     fontSize: 11,
-    color: CYANIDE_THEME.textMuted,
+    fontWeight: '700',
   },
-  primaryDistanceCard: {
+  distanceContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 8,
+    marginVertical: 10,
   },
-  primaryDistanceVal: {
+  distanceMain: {
     fontFamily: 'monospace',
-    fontSize: 34,
+    fontSize: 40,
     fontWeight: '900',
-    color: CYANIDE_THEME.textPrimary,
     letterSpacing: -1,
   },
-  primaryDistanceLabel: {
+  distanceLabel: {
     fontFamily: 'monospace',
     fontSize: 11,
     fontWeight: '800',
-    color: CYANIDE_THEME.primary,
     letterSpacing: 2,
-    marginTop: 2,
+    marginTop: -2,
   },
   metricsGrid: {
     gap: 10,
     marginVertical: 12,
   },
-  gridRow: {
+  metricsRow: {
     flexDirection: 'row',
     gap: 10,
   },
   controlsContainer: {
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: 10,
   },
-  startBtn: {
+  mainStartBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: CYANIDE_THEME.primary,
-    paddingVertical: 18,
+    paddingVertical: 16,
     borderRadius: 16,
     gap: 10,
-    shadowColor: CYANIDE_THEME.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 6,
   },
-  startBtnText: {
+  mainStartBtnText: {
     fontFamily: 'monospace',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
-    color: CYANIDE_THEME.bg,
-    letterSpacing: 1.5,
+    letterSpacing: 1,
   },
-  activeBtnGroup: {
+  dualActionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
-  pauseBtn: {
+  actionBtnSecondary: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: CYANIDE_THEME.card,
+    paddingVertical: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: CYANIDE_THEME.cardBorder,
-    paddingVertical: 16,
-    borderRadius: 14,
     gap: 8,
   },
-  pauseBtnText: {
+  actionBtnSecondaryText: {
     fontFamily: 'monospace',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
-    color: CYANIDE_THEME.textPrimary,
   },
-  resumeBtn: {
+  actionBtnStop: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: CYANIDE_THEME.primary,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderRadius: 14,
     gap: 8,
   },
-  resumeBtnText: {
+  actionBtnStopText: {
     fontFamily: 'monospace',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '900',
-    color: CYANIDE_THEME.bg,
-  },
-  endBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: CYANIDE_THEME.danger,
-    paddingVertical: 16,
-    borderRadius: 14,
-    gap: 8,
-  },
-  endBtnText: {
-    fontFamily: 'monospace',
-    fontSize: 15,
-    fontWeight: '900',
-    color: CYANIDE_THEME.textPrimary,
+    color: '#ffffff',
   },
 });

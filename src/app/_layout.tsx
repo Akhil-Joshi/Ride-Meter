@@ -74,6 +74,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0a0a0d',
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
   },
 });
