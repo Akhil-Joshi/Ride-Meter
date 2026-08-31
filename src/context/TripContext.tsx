@@ -39,6 +39,7 @@ interface TripContextType {
   endRide: () => Promise<number | null>;
   recoverRide: () => Promise<void>;
   discardRecoveredRide: () => Promise<void>;
+  resetRide: () => Promise<void>;
 }
 
 const TripContext = createContext<TripContextType>({
@@ -62,6 +63,7 @@ const TripContext = createContext<TripContextType>({
   endRide: async () => null,
   recoverRide: async () => {},
   discardRecoveredRide: async () => {},
+  resetRide: async () => {},
 });
 
 const ACTIVE_TRIP_KEY = '@ridemeter_active_trip_state';
@@ -404,6 +406,30 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTripStatus('idle');
   };
 
+  const resetRide = async () => {
+    stopLocationUpdates();
+    if (activeTripId && tripStatus !== 'completed') {
+      try {
+        await dbService.deleteTrip(activeTripId);
+      } catch (e) {
+        console.warn('Delete active trip error on reset:', e);
+      }
+    }
+    setActiveTripId(null);
+    setTripStatus('idle');
+    setCurrentSpeed(0);
+    setAverageSpeed(0);
+    setMaxSpeed(0);
+    setDistanceKm(0);
+    setDurationSeconds(0);
+    setMovingSeconds(0);
+    setStoppedSeconds(0);
+    setIsSpeedAlertActive(false);
+    lastLocationRef.current = null;
+    startedAtRef.current = null;
+    await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
+  };
+
   return (
     <TripContext.Provider
       value={{
@@ -427,6 +453,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         endRide,
         recoverRide,
         discardRecoveredRide,
+        resetRide,
       }}
     >
       {children}

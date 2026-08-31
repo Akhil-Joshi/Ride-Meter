@@ -161,17 +161,30 @@ export class DatabaseService {
   public async saveBike(bike: Partial<Bike>): Promise<number> {
     if (this.isNative && this.sqliteDb) {
       if (bike.id) {
-        await this.sqliteDb.runAsync(
-          `UPDATE bikes SET name=?, registration_number=?, make=?, model=?, year=?, current_odometer=? WHERE id=?;`,
-          [bike.name, bike.registration_number, bike.make, bike.model, bike.year, bike.current_odometer, bike.id]
-        );
+        const existingList = await this.sqliteDb.getAllAsync('SELECT * FROM bikes WHERE id=?;', [bike.id]);
+        if (existingList.length > 0) {
+          const existing = existingList[0];
+          const updated = { ...existing, ...bike };
+          await this.sqliteDb.runAsync(
+            `UPDATE bikes SET name=?, registration_number=?, make=?, model=?, year=?, current_odometer=? WHERE id=?;`,
+            [
+              updated.name,
+              updated.registration_number ?? '',
+              updated.make ?? '',
+              updated.model ?? '',
+              updated.year,
+              updated.current_odometer,
+              bike.id,
+            ]
+          );
+        }
         return bike.id;
       } else {
         const res = await this.sqliteDb.runAsync(
           `INSERT INTO bikes (name, registration_number, make, model, year, initial_odometer, current_odometer, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
           [
-            bike.name,
+            bike.name || 'My Motorcycle',
             bike.registration_number || '',
             bike.make || '',
             bike.model || '',

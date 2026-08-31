@@ -1,7 +1,8 @@
 import { router, Stack } from 'expo-router';
-import { Bike, Clock, Flame, Gauge, Navigation, Pause, Play, RefreshCw, Square } from 'lucide-react-native';
+import { Bike, Clock, Flame, Gauge, Navigation, Pause, Play, RefreshCw, RotateCcw, Square } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,6 +39,7 @@ export default function RideDashboardScreen() {
     endRide,
     recoverRide,
     discardRecoveredRide,
+    resetRide,
   } = useTrip();
 
   const { settings, updateSettings, theme } = useSettings();
@@ -54,6 +56,23 @@ export default function RideDashboardScreen() {
     if (tripId) {
       router.push(`/history/${tripId}`);
     }
+  };
+
+  const handleResetRide = () => {
+    Alert.alert(
+      'Reset Trip Meter?',
+      'Are you sure you want to reset current trip distance, duration, and max speed back to zero?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset Data',
+          style: 'destructive',
+          onPress: async () => {
+            await resetRide();
+          },
+        },
+      ]
+    );
   };
 
   const displaySpeed =
@@ -87,15 +106,19 @@ export default function RideDashboardScreen() {
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* Bike Selector Pill */}
+        {/* Bike Selector & Edit Link Pill */}
         {activeBike && (
           <View style={styles.bikeRow}>
-            <View style={[styles.bikePill, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <TouchableOpacity
+              style={[styles.bikePill, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+              onPress={() => router.push('/garage')}
+              activeOpacity={0.7}
+            >
               <Bike size={14} color={theme.primary} />
               <Text style={[styles.bikeText, { color: theme.textSecondary }]}>
                 {activeBike.name} ({activeBike.make} {activeBike.model})
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -154,7 +177,9 @@ export default function RideDashboardScreen() {
               ? 'LIVE TRIP DISTANCE'
               : tripStatus === 'paused'
                 ? 'TRIP PAUSED'
-                : 'READY TO RIDE'}
+                : tripStatus === 'completed'
+                  ? 'RIDE ENDED & SAVED'
+                  : 'READY TO RIDE'}
           </Text>
         </View>
 
@@ -194,37 +219,78 @@ export default function RideDashboardScreen() {
 
         {/* Primary Ride Control Action Bar */}
         <View style={styles.controlsContainer}>
-          {tripStatus === 'idle' && (
-            <TouchableOpacity style={[styles.mainStartBtn, { backgroundColor: theme.primary }]} onPress={startRide}>
-              <Play size={26} color={theme.bg} fill={theme.bg} />
-              <Text style={[styles.mainStartBtnText, { color: theme.bg }]}>START RIDE</Text>
-            </TouchableOpacity>
+          {(tripStatus === 'idle' || tripStatus === 'completed') && (
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[styles.mainStartBtn, { flex: 1, backgroundColor: theme.primary }]}
+                onPress={startRide}
+              >
+                <Play size={24} color={theme.bg} fill={theme.bg} />
+                <Text style={[styles.mainStartBtnText, { color: theme.bg }]}>START RIDE</Text>
+              </TouchableOpacity>
+
+              {(distanceKm > 0 || durationSeconds > 0 || maxSpeed > 0) && (
+                <TouchableOpacity
+                  style={[styles.resetBtn, { backgroundColor: theme.card, borderColor: theme.warning }]}
+                  onPress={handleResetRide}
+                >
+                  <RotateCcw size={18} color={theme.warning} />
+                  <Text style={[styles.resetBtnText, { color: theme.warning }]}>RESET</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
 
           {tripStatus === 'active' && (
-            <View style={styles.dualActionRow}>
-              <TouchableOpacity style={[styles.actionBtnSecondary, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={pauseRide}>
-                <Pause size={22} color={theme.textPrimary} />
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[styles.actionBtnSecondary, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                onPress={pauseRide}
+              >
+                <Pause size={20} color={theme.textPrimary} />
                 <Text style={[styles.actionBtnSecondaryText, { color: theme.textPrimary }]}>PAUSE</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.actionBtnStop, { backgroundColor: theme.danger }]} onPress={handleEndRide}>
-                <Square size={22} color="#ffffff" fill="#ffffff" />
-                <Text style={styles.actionBtnStopText}>END RIDE</Text>
+              <TouchableOpacity
+                style={[styles.actionBtnStop, { backgroundColor: theme.danger }]}
+                onPress={handleEndRide}
+              >
+                <Square size={20} color="#ffffff" fill="#ffffff" />
+                <Text style={styles.actionBtnStopText}>END</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.resetBtnCompact, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                onPress={handleResetRide}
+              >
+                <RotateCcw size={18} color={theme.warning} />
               </TouchableOpacity>
             </View>
           )}
 
           {tripStatus === 'paused' && (
-            <View style={styles.dualActionRow}>
-              <TouchableOpacity style={[styles.mainStartBtn, { flex: 1, backgroundColor: theme.primary }]} onPress={resumeRide}>
-                <Play size={22} color={theme.bg} fill={theme.bg} />
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[styles.mainStartBtn, { flex: 1, backgroundColor: theme.primary }]}
+                onPress={resumeRide}
+              >
+                <Play size={20} color={theme.bg} fill={theme.bg} />
                 <Text style={[styles.mainStartBtnText, { color: theme.bg }]}>RESUME</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.actionBtnStop, { backgroundColor: theme.danger }]} onPress={handleEndRide}>
-                <Square size={22} color="#ffffff" fill="#ffffff" />
+              <TouchableOpacity
+                style={[styles.actionBtnStop, { backgroundColor: theme.danger }]}
+                onPress={handleEndRide}
+              >
+                <Square size={20} color="#ffffff" fill="#ffffff" />
                 <Text style={styles.actionBtnStopText}>END</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.resetBtnCompact, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                onPress={handleResetRide}
+              >
+                <RotateCcw size={18} color={theme.warning} />
               </TouchableOpacity>
             </View>
           )}
@@ -337,23 +403,24 @@ const styles = StyleSheet.create({
   controlsContainer: {
     marginTop: 10,
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
   mainStartBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 10,
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
   },
   mainStartBtnText: {
     fontFamily: 'monospace',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     letterSpacing: 1,
-  },
-  dualActionRow: {
-    flexDirection: 'row',
-    gap: 10,
   },
   actionBtnSecondary: {
     flex: 1,
@@ -363,7 +430,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
-    gap: 8,
+    gap: 6,
   },
   actionBtnSecondaryText: {
     fontFamily: 'monospace',
@@ -377,12 +444,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 14,
-    gap: 8,
+    gap: 6,
   },
   actionBtnStopText: {
     fontFamily: 'monospace',
     fontSize: 14,
     fontWeight: '900',
     color: '#ffffff',
+  },
+  resetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 6,
+  },
+  resetBtnText: {
+    fontFamily: 'monospace',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  resetBtnCompact: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -8,7 +8,7 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
-import { Bike, Fuel, Wrench, Plus, Gauge } from 'lucide-react-native';
+import { Bike, Fuel, Wrench, Plus, Gauge, Edit3 } from 'lucide-react-native';
 import { dbService } from '../../database/db';
 import { Bike as BikeType, FuelLog, Maintenance } from '../../utils/mockData';
 import { FuelCard } from '../../components/FuelCard';
@@ -27,13 +27,21 @@ export default function GarageScreen() {
   // Modals state
   const [showFuelModal, setShowFuelModal] = useState(false);
   const [showMaintModal, setShowMaintModal] = useState(false);
+  const [showEditBikeModal, setShowEditBikeModal] = useState(false);
 
-  // Form states
+  // Form states for Fuel & Maintenance
   const [fuelLiters, setFuelLiters] = useState('');
   const [fuelCost, setFuelCost] = useState('');
   const [maintType, setMaintType] = useState('Engine Oil');
   const [maintDesc, setMaintDesc] = useState('');
   const [maintInterval, setMaintInterval] = useState('2000');
+
+  // Form states for Editing Bike Profile
+  const [bikeName, setBikeName] = useState('');
+  const [bikeMake, setBikeMake] = useState('');
+  const [bikeModel, setBikeModel] = useState('');
+  const [bikeYear, setBikeYear] = useState('');
+  const [bikeOdo, setBikeOdo] = useState('');
 
   const loadGarage = async () => {
     const bikesData = await dbService.getBikes();
@@ -52,6 +60,30 @@ export default function GarageScreen() {
       loadGarage();
     }, [])
   );
+
+  const openEditBikeModal = () => {
+    if (!activeBike) return;
+    setBikeName(activeBike.name);
+    setBikeMake(activeBike.make);
+    setBikeModel(activeBike.model);
+    setBikeYear(activeBike.year.toString());
+    setBikeOdo(activeBike.current_odometer.toString());
+    setShowEditBikeModal(true);
+  };
+
+  const handleSaveBike = async () => {
+    if (!activeBike) return;
+    await dbService.saveBike({
+      id: activeBike.id,
+      name: bikeName.trim() || activeBike.name,
+      make: bikeMake.trim() || activeBike.make,
+      model: bikeModel.trim() || activeBike.model,
+      year: parseInt(bikeYear, 10) || activeBike.year,
+      current_odometer: parseFloat(bikeOdo) || activeBike.current_odometer,
+    });
+    setShowEditBikeModal(false);
+    loadGarage();
+  };
 
   const handleAddFuel = async () => {
     if (!fuelLiters || !fuelCost || !activeBike) return;
@@ -124,6 +156,13 @@ export default function GarageScreen() {
                   {activeBike.make} {activeBike.model} ({activeBike.year})
                 </Text>
               </View>
+              <TouchableOpacity
+                style={[styles.editBikeBtn, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder }]}
+                onPress={openEditBikeModal}
+              >
+                <Edit3 size={14} color={theme.primary} />
+                <Text style={[styles.editBikeBtnText, { color: theme.primary }]}>EDIT</Text>
+              </TouchableOpacity>
             </View>
 
             <View style={[styles.odoContainer, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder }]}>
@@ -210,6 +249,74 @@ export default function GarageScreen() {
             ))}
           </View>
         )}
+
+        {/* Edit Bike Profile Modal */}
+        <Modal visible={showEditBikeModal} transparent animationType="fade">
+          <View style={styles.modalBg}>
+            <View style={[styles.modalContent, { backgroundColor: theme.modalBg, borderColor: theme.cardBorder }]}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>EDIT BIKE PROFILE</Text>
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>BIKE NAME / DISPLAY TITLE</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. Hunter 350 / Speedster"
+                placeholderTextColor={theme.textMuted}
+                value={bikeName}
+                onChangeText={setBikeName}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>MAKE (MANUFACTURER)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. Royal Enfield"
+                placeholderTextColor={theme.textMuted}
+                value={bikeMake}
+                onChangeText={setBikeMake}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>MODEL</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. Hunter 350"
+                placeholderTextColor={theme.textMuted}
+                value={bikeModel}
+                onChangeText={setBikeModel}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>YEAR</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. 2024"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="numeric"
+                value={bikeYear}
+                onChangeText={setBikeYear}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>CURRENT ODOMETER (KM)</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.cardHover, borderColor: theme.cardBorder, color: theme.textPrimary }]}
+                placeholder="e.g. 4250"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="numeric"
+                value={bikeOdo}
+                onChangeText={setBikeOdo}
+              />
+
+              <View style={styles.modalBtnRow}>
+                <TouchableOpacity
+                  style={[styles.modalCancel, { borderColor: theme.cardBorder }]}
+                  onPress={() => setShowEditBikeModal(false)}
+                >
+                  <Text style={[styles.modalCancelText, { color: theme.textMuted }]}>CANCEL</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalSave, { backgroundColor: theme.primary }]} onPress={handleSaveBike}>
+                  <Text style={[styles.modalSaveText, { color: theme.bg }]}>SAVE CHANGES</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Add Fuel Modal */}
         <Modal visible={showFuelModal} transparent animationType="fade">
@@ -335,6 +442,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   bikeTitleBox: {
+    flex: 1,
     gap: 2,
   },
   bikeName: {
@@ -345,6 +453,20 @@ const styles = StyleSheet.create({
   bikeSub: {
     fontFamily: 'monospace',
     fontSize: 12,
+  },
+  editBikeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  editBikeBtnText: {
+    fontFamily: 'monospace',
+    fontSize: 11,
+    fontWeight: '800',
   },
   odoContainer: {
     borderRadius: 12,
