@@ -1,6 +1,6 @@
 import { router, Stack } from 'expo-router';
-import { Bike, Clock, Flame, Gauge, Navigation, Pause, Play, RefreshCw, RotateCcw, Square } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import { Bike, Clock, Flame, Gauge, Pause, Play, RefreshCw, RotateCcw, Square } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -87,7 +87,7 @@ export default function RideDashboardScreen() {
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Stack.Screen
         options={{
-          title: 'DASHBOARD',
+          title: 'Dashboard',
           headerShown: true,
           headerStyle: { backgroundColor: theme.card },
           headerTitleStyle: {

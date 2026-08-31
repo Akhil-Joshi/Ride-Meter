@@ -1,10 +1,10 @@
 import { router, Stack, useFocusEffect } from 'expo-router';
-import { Award, Clock, Compass, Flame, Gauge, ChartBar } from 'lucide-react-native';
+import { Award, ChartBar, Clock, Compass, Flame, Gauge } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { StatCard } from '../../components/StatCard';
 import { EmptyState } from '../../components/EmptyState';
 import { CardSkeleton } from '../../components/SkeletonLoader';
+import { StatCard } from '../../components/StatCard';
 import { useSettings } from '../../context/SettingsContext';
 import { dbService } from '../../database/db';
 import { formatDistance, formatDuration, formatSpeed } from '../../utils/formatting';
@@ -58,7 +58,7 @@ export default function StatisticsScreen() {
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Stack.Screen
         options={{
-          title: 'ANALYTICS',
+          title: 'Analytics',
           headerShown: true,
           headerStyle: { backgroundColor: theme.card },
           headerTitleStyle: {

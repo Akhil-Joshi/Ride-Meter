@@ -1,5 +1,5 @@
 import { router, Stack, useFocusEffect } from 'expo-router';
-import { Download, Search, Navigation } from 'lucide-react-native';
+import { Download, Navigation, Search } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   FlatList,
@@ -10,13 +10,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { TripCard } from '../../components/TripCard';
 import { EmptyState } from '../../components/EmptyState';
 import { CardSkeleton } from '../../components/SkeletonLoader';
+import { TripCard } from '../../components/TripCard';
+import { useSettings } from '../../context/SettingsContext';
 import { dbService } from '../../database/db';
 import { ExportService } from '../../services/exportService';
 import { Trip } from '../../utils/mockData';
-import { useSettings } from '../../context/SettingsContext';
 
 export default function HistoryScreen() {
   const { theme } = useSettings();
@@ -75,7 +75,7 @@ export default function HistoryScreen() {
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Stack.Screen
         options={{
-          title: 'LOGS',
+          title: 'Logs',
           headerShown: true,
           headerStyle: { backgroundColor: theme.card },
           headerTitleStyle: {

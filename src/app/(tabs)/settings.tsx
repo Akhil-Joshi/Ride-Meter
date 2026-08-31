@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
+import { Stack } from 'expo-router';
+import { Bell, Download, Gauge, Palette, RotateCcw, Shield, Smartphone } from 'lucide-react-native';
+import { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Switch,
-  TextInput,
   Alert,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Gauge, Shield, Bell, Download, RotateCcw, Smartphone, Palette } from 'lucide-react-native';
 import { useSettings } from '../../context/SettingsContext';
 import { dbService } from '../../database/db';
 import { ExportService } from '../../services/exportService';
-import { Stack } from 'expo-router';
 
 export default function SettingsScreen() {
   const { settings, updateSettings, theme } = useSettings();
@@ -56,7 +56,7 @@ export default function SettingsScreen() {
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Stack.Screen
         options={{
-          title: 'SETTINGS',
+          title: 'Settings',
           headerShown: true,
           headerStyle: { backgroundColor: theme.card },
           headerTitleStyle: {

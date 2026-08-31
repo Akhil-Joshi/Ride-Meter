@@ -1,23 +1,23 @@
+import { Stack, useFocusEffect } from 'expo-router';
+import { Bike, Edit3, Fuel, Gauge, Plus, Wrench } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
-  TextInput,
   Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Bike, Fuel, Wrench, Plus, Gauge, Edit3 } from 'lucide-react-native';
-import { dbService } from '../../database/db';
-import { Bike as BikeType, FuelLog, Maintenance } from '../../utils/mockData';
+import { EmptyState } from '../../components/EmptyState';
 import { FuelCard } from '../../components/FuelCard';
 import { MaintenanceCard } from '../../components/MaintenanceCard';
-import { EmptyState } from '../../components/EmptyState';
 import { CardSkeleton } from '../../components/SkeletonLoader';
-import { useFocusEffect, Stack } from 'expo-router';
 import { useSettings } from '../../context/SettingsContext';
+import { dbService } from '../../database/db';
+import { Bike as BikeType, FuelLog, Maintenance } from '../../utils/mockData';
 
 export default function GarageScreen() {
   const { settings, theme } = useSettings();
@@ -280,7 +280,7 @@ export default function GarageScreen() {
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Stack.Screen
         options={{
-          title: 'GARAGE & SERVICE',
+          title: 'Service',
           headerShown: true,
           headerStyle: { backgroundColor: theme.card },
           headerTitleStyle: {
