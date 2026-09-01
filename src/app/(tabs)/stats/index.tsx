@@ -106,7 +106,7 @@ export default function StatisticsScreen() {
             title="NO ANALYTICS DATA"
             description="Complete your first trip to unlock performance trends, top speed analytics, and riding stats."
             actionLabel="GO TO DASHBOARD"
-            onAction={() => router.push('/(tabs)/index')}
+            onAction={() => router.push('/(tabs)/dashboard')}
           />
         ) : (
           <>

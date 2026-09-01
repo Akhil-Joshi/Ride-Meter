@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SettingsProvider, useSettings } from '../context/SettingsContext';
@@ -31,7 +31,7 @@ function RootAppContent() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="history/[id]" options={{ title: 'TRIP LOG DETAILS', headerShown: true }} />
+        <Stack.Screen name="history/[id]" options={{ title: 'TRIP LOG DETAILS', headerShown: true, headerBackButtonDisplayMode: 'minimal' }} />
       </Stack>
     </>
   );

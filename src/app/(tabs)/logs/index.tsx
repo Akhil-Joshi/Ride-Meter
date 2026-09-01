@@ -161,7 +161,7 @@ export default function HistoryScreen() {
                 title="NO RIDE LOGS YET"
                 description="Start your first motorcycle ride from the Dashboard to record speed, duration, and route data."
                 actionLabel="GO TO DASHBOARD"
-                onAction={() => router.push('/(tabs)/index')}
+                onAction={() => router.push('/(tabs)/dashboard')}
               />
             }
           />

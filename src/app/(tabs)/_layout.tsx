@@ -1,6 +1,5 @@
-import React from 'react';
-import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useSettings } from '../../context/SettingsContext';
 
 export default function TabLayout() {
@@ -15,7 +14,7 @@ export default function TabLayout() {
         default: { color: theme.textMuted },
       }}
     >
-      <NativeTabs.Trigger name="index">
+      <NativeTabs.Trigger name="dashboard">
         <NativeTabs.Trigger.Label>Ride</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf="speedometer"
@@ -24,8 +23,8 @@ export default function TabLayout() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="history">
-        <NativeTabs.Trigger.Label>History</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="logs">
+        <NativeTabs.Trigger.Label>Logs</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf="clock.fill"
           src={<NativeTabs.Trigger.VectorIcon family={Ionicons} name="time" />}
