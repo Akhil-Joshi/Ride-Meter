@@ -10,15 +10,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { GPSStatusBadge } from '../../components/GPSStatusBadge';
-import { SpeedAlertBanner } from '../../components/SpeedAlertBanner';
-import { SpeedometerGauge } from '../../components/SpeedometerGauge';
-import { StatCard } from '../../components/StatCard';
-import { useSettings } from '../../context/SettingsContext';
-import { useTrip } from '../../context/TripContext';
-import { dbService } from '../../database/db';
-import { formatDistance, formatDuration, formatSpeed } from '../../utils/formatting';
-import { Bike as BikeType } from '../../utils/mockData';
+import { GPSStatusBadge } from '../../../components/GPSStatusBadge';
+import { SpeedAlertBanner } from '../../../components/SpeedAlertBanner';
+import { SpeedometerGauge } from '../../../components/SpeedometerGauge';
+import { StatCard } from '../../../components/StatCard';
+import { useSettings } from '../../../context/SettingsContext';
+import { useTrip } from '../../../context/TripContext';
+import { dbService } from '../../../database/db';
+import { formatDistance, formatDuration, formatSpeed } from '../../../utils/formatting';
+import { Bike as BikeType } from '../../../utils/mockData';
 
 export default function RideDashboardScreen() {
   const {
@@ -103,14 +103,6 @@ export default function RideDashboardScreen() {
       <Stack.Screen
         options={{
           title: 'Dashboard',
-          headerShown: true,
-          headerStyle: { backgroundColor: theme.card },
-          headerTitleStyle: {
-            fontFamily: 'monospace',
-            fontWeight: '900',
-            color: theme.textPrimary,
-            fontSize: 16,
-          },
           headerRight: () => (
             <GPSStatusBadge
               status={gpsQuality}

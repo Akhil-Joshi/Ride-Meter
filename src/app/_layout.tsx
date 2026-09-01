@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, StatusBar } from 'react-native';
 import { Stack } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SettingsProvider, useSettings } from '../context/SettingsContext';
 import { TripProvider } from '../context/TripContext';
@@ -17,7 +17,7 @@ function RootAppContent() {
       />
       <Stack
         screenOptions={{
-          headerShown: true,
+          headerShown: false,
           headerStyle: { backgroundColor: theme.card },
           headerTintColor: theme.primary,
           headerTitleStyle: {
@@ -30,7 +30,7 @@ function RootAppContent() {
           contentStyle: { backgroundColor: theme.bg },
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: true, title: 'RideMeter' }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="history/[id]" options={{ title: 'TRIP LOG DETAILS', headerShown: true }} />
       </Stack>
     </>

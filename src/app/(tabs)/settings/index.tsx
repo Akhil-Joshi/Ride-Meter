@@ -12,9 +12,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSettings } from '../../context/SettingsContext';
-import { dbService } from '../../database/db';
-import { ExportService } from '../../services/exportService';
+import { useSettings } from '../../../context/SettingsContext';
+import { dbService } from '../../../database/db';
+import { ExportService } from '../../../services/exportService';
 
 export default function SettingsScreen() {
   const { settings, updateSettings, theme } = useSettings();
@@ -68,19 +68,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <Stack.Screen
-        options={{
-          title: 'Settings',
-          headerShown: true,
-          headerStyle: { backgroundColor: theme.card },
-          headerTitleStyle: {
-            fontFamily: 'monospace',
-            fontWeight: '900',
-            color: theme.textPrimary,
-            fontSize: 16,
-          },
-        }}
-      />
+      <Stack.Screen options={{ title: 'Settings' }} />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -100,7 +88,7 @@ export default function SettingsScreen() {
           <View style={styles.row}>
             <View style={styles.rowLeft}>
               <Palette size={18} color={theme.primary} />
-              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>THEME MODE</Text>
+              <Text style={[styles.rowLabel, { color: theme.textPrimary }]}>COLOR THEME MODE</Text>
             </View>
 
             <View style={[styles.segmentedControl, { backgroundColor: theme.cardHover }]}>
@@ -250,8 +238,8 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Section 4: Data Export & Ownership */}
-        <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>OFFLINE DATA PORTABILITY</Text>
+        {/* Section 4: Data & Backup */}
+        <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>DATA BACKUP & RESET</Text>
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <TouchableOpacity style={styles.row} onPress={handleFullBackup}>
             <View style={styles.rowLeft}>
@@ -260,23 +248,12 @@ export default function SettingsScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.cardBorder }]}
-            onPress={handleResetData}
-          >
+          <TouchableOpacity style={[styles.row, { borderTopWidth: 1, borderTopColor: theme.cardBorder }]} onPress={handleResetData}>
             <View style={styles.rowLeft}>
               <RotateCcw size={18} color={theme.danger} />
-              <Text style={[styles.rowLabel, { color: theme.danger }]}>
-                RESET DATABASE & RE-SEED
-              </Text>
+              <Text style={[styles.rowLabel, { color: theme.danger }]}>RESET ALL LOGS & DATA</Text>
             </View>
           </TouchableOpacity>
-        </View>
-
-        {/* App Info Footer */}
-        <View style={styles.appInfo}>
-          <Text style={[styles.appTitle, { color: theme.textMuted }]}>RideMeter v1.0.0 (Cyanide Edition)</Text>
-          <Text style={[styles.appDesc, { color: theme.textMuted }]}>Strictly Offline-First • SQLite Storage • Phone GPS Engine</Text>
         </View>
       </ScrollView>
     </View>
@@ -298,13 +275,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1,
     marginBottom: 8,
-    marginTop: 10,
+    marginTop: 8,
   },
   card: {
     borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 14,
-    overflow: 'hidden',
+    marginBottom: 16,
   },
   row: {
     flexDirection: 'row',
@@ -319,8 +295,9 @@ const styles = StyleSheet.create({
   },
   rowLabel: {
     fontFamily: 'monospace',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
   segmentedControl: {
     flexDirection: 'row',
@@ -334,31 +311,16 @@ const styles = StyleSheet.create({
   },
   segmentText: {
     fontFamily: 'monospace',
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '900',
   },
   limitInput: {
-    width: 60,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
     fontFamily: 'monospace',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '900',
+    width: 60,
     textAlign: 'center',
-  },
-  appInfo: {
-    alignItems: 'center',
-    marginVertical: 20,
-    gap: 4,
-  },
-  appTitle: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  appDesc: {
-    fontFamily: 'monospace',
-    fontSize: 10,
+    borderRadius: 6,
+    paddingVertical: 4,
   },
 });

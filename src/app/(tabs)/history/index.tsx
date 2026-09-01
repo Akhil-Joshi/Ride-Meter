@@ -11,13 +11,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { EmptyState } from '../../components/EmptyState';
-import { CardSkeleton } from '../../components/SkeletonLoader';
-import { TripCard } from '../../components/TripCard';
-import { useSettings } from '../../context/SettingsContext';
-import { dbService } from '../../database/db';
-import { ExportService } from '../../services/exportService';
-import { Trip } from '../../utils/mockData';
+import { EmptyState } from '../../../components/EmptyState';
+import { CardSkeleton } from '../../../components/SkeletonLoader';
+import { TripCard } from '../../../components/TripCard';
+import { useSettings } from '../../../context/SettingsContext';
+import { dbService } from '../../../database/db';
+import { ExportService } from '../../../services/exportService';
+import { Trip } from '../../../utils/mockData';
 
 export default function HistoryScreen() {
   const { theme } = useSettings();
@@ -67,68 +67,52 @@ export default function HistoryScreen() {
 
   const filteredTrips = trips.filter((t) => {
     const matchesSearch =
-      t.trip_type?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.notes?.toLowerCase().includes(searchQuery.toLowerCase());
+      (t.notes || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.trip_type || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
 
-    if (selectedFilter === 'All') return true;
-    if (selectedFilter === '⭐ Favorites') return t.is_favorite === 1;
-    return t.trip_type === selectedFilter;
+    if (selectedFilter === 'Favorites') return t.is_favorite === 1;
+    if (selectedFilter === 'Commute') return t.trip_type === 'Commute';
+    if (selectedFilter === 'Tour') return t.trip_type === 'Tour';
+    if (selectedFilter === 'Personal') return t.trip_type === 'Personal';
+    return true;
   });
-
-  const categories = ['All', '⭐ Favorites', 'Personal', 'Commute', 'Tour'];
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <Stack.Screen
         options={{
           title: 'Logs',
-          headerShown: true,
-          headerStyle: { backgroundColor: theme.card },
-          headerTitleStyle: {
-            fontFamily: 'monospace',
-            fontWeight: '900',
-            color: theme.textPrimary,
-            fontSize: 16,
-          },
           headerRight: () => (
-            <TouchableOpacity
-              style={[styles.exportBtn, { backgroundColor: theme.card, borderColor: theme.primary }]}
-              onPress={handleExportCSV}
-            >
-              <Download size={14} color={theme.primary} />
-              <Text style={[styles.exportBtnText, { color: theme.primary }]}>EXPORT CSV</Text>
+            <TouchableOpacity style={styles.exportHeaderBtn} onPress={handleExportCSV}>
+              <Download size={18} color={theme.primary} />
             </TouchableOpacity>
           ),
         }}
       />
-      <View style={styles.mainContent}>
 
+      <View style={styles.mainContent}>
         {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          <Search size={16} color={theme.textMuted} />
+        <View style={[styles.searchCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <Search size={18} color={theme.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: theme.textPrimary }]}
-            placeholder="Search notes or categories..."
+            placeholder="Search logs by category or notes..."
             placeholderTextColor={theme.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
 
-        {/* Horizontally Scrollable Category Filter Badges */}
-        <View style={styles.filterRowWrapper}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScroll}
-          >
-            {categories.map((cat) => (
+        {/* Filter Badges */}
+        <View style={styles.filterRowContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollContent}>
+            {(['All', 'Favorites', 'Personal', 'Commute', 'Tour'] as const).map((cat) => (
               <TouchableOpacity
                 key={cat}
                 style={[
-                  styles.filterChip,
+                  styles.filterBadge,
                   { backgroundColor: theme.card, borderColor: theme.cardBorder },
                   selectedFilter === cat && { borderColor: theme.primary, backgroundColor: theme.cardHover },
                 ]}
@@ -177,7 +161,7 @@ export default function HistoryScreen() {
                 title="NO RIDE LOGS YET"
                 description="Start your first motorcycle ride from the Dashboard to record speed, duration, and route data."
                 actionLabel="GO TO DASHBOARD"
-                onAction={() => router.push('/')}
+                onAction={() => router.push('/(tabs)/index')}
               />
             }
           />
@@ -194,48 +178,36 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 8,
   },
-  exportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+  exportHeaderBtn: {
+    padding: 6,
   },
-  exportBtnText: {
-    fontFamily: 'monospace',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  searchContainer: {
+  searchCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    marginBottom: 12,
+    paddingVertical: 8,
     gap: 8,
+    borderWidth: 1,
+    marginBottom: 10,
   },
   searchInput: {
     flex: 1,
     fontFamily: 'monospace',
     fontSize: 13,
   },
-  filterRowWrapper: {
-    marginBottom: 14,
+  filterRowContainer: {
+    marginBottom: 12,
   },
-  filterScroll: {
+  filterScrollContent: {
     flexDirection: 'row',
     gap: 8,
-    paddingRight: 16,
   },
-  filterChip: {
+  filterBadge: {
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
   },
