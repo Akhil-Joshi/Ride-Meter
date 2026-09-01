@@ -4,12 +4,13 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
   TouchableOpacity,
   TextInput,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router, Stack } from 'expo-router';
+import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router';
 import { Download, Trash2, Clock, Gauge, Flame, MapPin, Save, Edit3 } from 'lucide-react-native';
 import { dbService } from '../../database/db';
 import { Trip } from '../../utils/mockData';
@@ -25,8 +26,9 @@ export default function TripDetailScreen() {
   const [notes, setNotes] = useState('');
   const [tripType, setTripType] = useState<string>('Personal');
   const [isEditing, setIsEditing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  const fetchTrip = React.useCallback(() => {
     if (id) {
       dbService.getTripById(parseInt(id, 10)).then((data) => {
         if (data) {
@@ -37,6 +39,18 @@ export default function TripDetailScreen() {
       });
     }
   }, [id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchTrip();
+    }, [fetchTrip])
+  );
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await fetchTrip();
+    setRefreshing(false);
+  }, [fetchTrip]);
 
   if (!trip) {
     return (
@@ -108,7 +122,18 @@ export default function TripDetailScreen() {
           ),
         }}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
 
         {/* Trip Title & Category Badge */}
         <View style={styles.titleSection}>

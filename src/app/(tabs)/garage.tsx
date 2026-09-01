@@ -5,6 +5,7 @@ import {
   Alert,
   Modal,
   ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -22,6 +23,7 @@ import { Bike as BikeType, FuelLog, Maintenance } from '../../utils/mockData';
 export default function GarageScreen() {
   const { settings, theme } = useSettings();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [bikes, setBikes] = useState<BikeType[]>([]);
   const [activeBike, setActiveBike] = useState<BikeType | null>(null);
   const [fuelLogs, setFuelLogs] = useState<FuelLog[]>([]);
@@ -88,6 +90,12 @@ export default function GarageScreen() {
       loadGarage();
     }, [])
   );
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await loadGarage();
+    setRefreshing(false);
+  }, []);
 
   const openAddOrEditBikeModal = () => {
     if (activeBike) {
@@ -291,7 +299,18 @@ export default function GarageScreen() {
           },
         }}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
 
         {/* Bike Profile Card */}
         {loading ? (

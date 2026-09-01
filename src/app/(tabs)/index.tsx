@@ -1,9 +1,10 @@
-import { router, Stack } from 'expo-router';
+import { useFocusEffect, router, Stack } from 'expo-router';
 import { Bike, Clock, Flame, Gauge, Pause, Play, RefreshCw, RotateCcw, Square } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -45,12 +46,26 @@ export default function RideDashboardScreen() {
   const { settings, updateSettings, theme } = useSettings();
   const [activeBike, setActiveBike] = useState<BikeType | null>(null);
   const [selectedTripType, setSelectedTripType] = useState<'Personal' | 'Commute' | 'Tour'>('Personal');
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  const loadDashboardData = React.useCallback(() => {
     dbService.getBikes().then((bikes) => {
       if (bikes.length > 0) setActiveBike(bikes[0]);
+      else setActiveBike(null);
     });
-  }, [tripStatus]);
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadDashboardData();
+    }, [loadDashboardData])
+  );
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await loadDashboardData();
+    setRefreshing(false);
+  }, [loadDashboardData]);
 
   const handleEndRide = async () => {
     const tripId = await endRide();
@@ -105,7 +120,18 @@ export default function RideDashboardScreen() {
           ),
         }}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
 
         {/* Bike Selector & Edit Link Pill */}
         <View style={styles.bikeRow}>

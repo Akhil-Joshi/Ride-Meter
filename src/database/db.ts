@@ -232,22 +232,34 @@ export class DatabaseService {
     if (this.isNative && this.sqliteDb) {
       try {
         if (trip.id) {
-          await this.sqliteDb.runAsync(
-            `UPDATE trips SET ended_at=?, duration_seconds=?, moving_seconds=?, stopped_seconds=?, distance_km=?, average_speed_kmh=?, max_speed_kmh=?, notes=?, is_favorite=?, status=? WHERE id=?;`,
-            [
-              trip.ended_at || null,
-              trip.duration_seconds || 0,
-              trip.moving_seconds || 0,
-              trip.stopped_seconds || 0,
-              trip.distance_km || 0,
-              trip.average_speed_kmh || 0,
-              trip.max_speed_kmh || 0,
-              trip.notes || '',
-              trip.is_favorite ? 1 : 0,
-              trip.status || 'completed',
-              trip.id,
-            ]
-          );
+          const existingList = await this.sqliteDb.getAllAsync('SELECT * FROM trips WHERE id=?;', [trip.id]);
+          if (existingList && existingList.length > 0) {
+            const existing = existingList[0];
+            const updated = { ...existing, ...trip };
+            await this.sqliteDb.runAsync(
+              `UPDATE trips SET bike_id=?, started_at=?, ended_at=?, duration_seconds=?, moving_seconds=?, stopped_seconds=?, distance_km=?, average_speed_kmh=?, max_speed_kmh=?, start_latitude=?, start_longitude=?, end_latitude=?, end_longitude=?, trip_type=?, notes=?, is_favorite=?, status=? WHERE id=?;`,
+              [
+                updated.bike_id ?? 1,
+                updated.started_at,
+                updated.ended_at ?? null,
+                updated.duration_seconds ?? 0,
+                updated.moving_seconds ?? 0,
+                updated.stopped_seconds ?? 0,
+                updated.distance_km ?? 0,
+                updated.average_speed_kmh ?? 0,
+                updated.max_speed_kmh ?? 0,
+                updated.start_latitude ?? null,
+                updated.start_longitude ?? null,
+                updated.end_latitude ?? null,
+                updated.end_longitude ?? null,
+                updated.trip_type || 'Personal',
+                updated.notes ?? '',
+                updated.is_favorite ? 1 : 0,
+                updated.status || 'completed',
+                trip.id,
+              ]
+            );
+          }
           return trip.id;
         } else {
           const res = await this.sqliteDb.runAsync(

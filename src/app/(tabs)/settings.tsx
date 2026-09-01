@@ -1,9 +1,10 @@
-import { Stack } from 'expo-router';
+import { useFocusEffect, Stack } from 'expo-router';
 import { Bell, Download, Gauge, Palette, RotateCcw, Shield, Smartphone } from 'lucide-react-native';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   ScrollView,
+  RefreshControl,
   StyleSheet,
   Switch,
   Text,
@@ -18,6 +19,19 @@ import { ExportService } from '../../services/exportService';
 export default function SettingsScreen() {
   const { settings, updateSettings, theme } = useSettings();
   const [speedLimitText, setSpeedLimitText] = useState(settings.speedLimitKmh.toString());
+  const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setSpeedLimitText(settings.speedLimitKmh.toString());
+    }, [settings.speedLimitKmh])
+  );
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    setSpeedLimitText(settings.speedLimitKmh.toString());
+    setRefreshing(false);
+  }, [settings.speedLimitKmh]);
 
   const handleSpeedLimitChange = (text: string) => {
     setSpeedLimitText(text);
@@ -67,7 +81,18 @@ export default function SettingsScreen() {
           },
         }}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
 
         {/* Section 1: Theme & Display */}
         <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>THEME & DISPLAY</Text>
@@ -178,7 +203,7 @@ export default function SettingsScreen() {
               value={settings.speedAlertEnabled}
               onValueChange={(val) => updateSettings({ speedAlertEnabled: val })}
               trackColor={{ false: theme.cardHover, true: theme.primary }}
-              thumbColor={theme.textPrimary}
+              thumbColor="#ffffff"
             />
           </View>
 
@@ -207,7 +232,7 @@ export default function SettingsScreen() {
               value={settings.autoPauseEnabled}
               onValueChange={(val) => updateSettings({ autoPauseEnabled: val })}
               trackColor={{ false: theme.cardHover, true: theme.primary }}
-              thumbColor={theme.textPrimary}
+              thumbColor="#ffffff"
             />
           </View>
 
@@ -220,7 +245,7 @@ export default function SettingsScreen() {
               value={settings.simulatedRideMode}
               onValueChange={(val) => updateSettings({ simulatedRideMode: val })}
               trackColor={{ false: theme.cardHover, true: theme.primary }}
-              thumbColor={theme.textPrimary}
+              thumbColor="#ffffff"
             />
           </View>
         </View>

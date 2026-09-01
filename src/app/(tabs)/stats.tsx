@@ -1,7 +1,7 @@
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { Award, ChartBar, Clock, Compass, Flame, Gauge } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { EmptyState } from '../../components/EmptyState';
 import { CardSkeleton } from '../../components/SkeletonLoader';
 import { StatCard } from '../../components/StatCard';
@@ -15,6 +15,7 @@ export default function StatisticsScreen() {
   const [period, setPeriod] = useState<'lifetime' | 'monthly' | 'weekly'>('lifetime');
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadData = async () => {
     try {
@@ -30,6 +31,12 @@ export default function StatisticsScreen() {
       loadData();
     }, [])
   );
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  }, []);
 
   // Filter trips by selected period
   const filteredTrips = trips.filter((t) => {
@@ -69,7 +76,18 @@ export default function StatisticsScreen() {
           },
         }}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
 
         {/* Period Tabs */}
         <View style={[styles.tabContainer, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>

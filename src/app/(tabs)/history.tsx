@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import {
   FlatList,
   ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -22,6 +23,7 @@ export default function HistoryScreen() {
   const { theme } = useSettings();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<string>('All');
 
@@ -42,6 +44,12 @@ export default function HistoryScreen() {
       loadTrips();
     }, [])
   );
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await loadTrips();
+    setRefreshing(false);
+  }, []);
 
   const toggleFavorite = async (id: number) => {
     const target = trips.find((t) => t.id === id);
@@ -147,6 +155,14 @@ export default function HistoryScreen() {
           <FlatList
             data={filteredTrips}
             keyExtractor={(item) => item.id.toString()}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={theme.primary}
+                colors={[theme.primary]}
+              />
+            }
             renderItem={({ item }) => (
               <TripCard
                 trip={item}
