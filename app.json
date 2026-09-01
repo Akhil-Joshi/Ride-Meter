@@ -36,7 +36,19 @@
         }
       ],
       "expo-sqlite",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "RideMeter uses GPS for the speedometer and trip distance while you ride."
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "RideMeter uses the accelerometer and gyroscope to tell when you are stopped so GPS drift is not counted as speed or distance."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

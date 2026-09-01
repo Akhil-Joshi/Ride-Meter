@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS: SettingsState = {
   speedLimitKmh: 80,
   autoPauseEnabled: true,
   autoPauseSeconds: 5,
-  accuracyThresholdMeters: 50,
+  accuracyThresholdMeters: 80,
   simulatedRideMode: false,
   orientation: 'auto',
   themeMode: 'dark',

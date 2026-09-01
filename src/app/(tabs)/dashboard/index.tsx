@@ -24,6 +24,7 @@ export default function RideDashboardScreen() {
   const {
     tripStatus,
     currentSpeed,
+    averageSpeed,
     maxSpeed,
     distanceKm,
     durationSeconds,
@@ -93,8 +94,6 @@ export default function RideDashboardScreen() {
 
   const displaySpeed =
     settings.speedUnit === 'mph' ? currentSpeed * 0.621371 : currentSpeed;
-  const displayMaxSpeed =
-    settings.speedUnit === 'mph' ? maxSpeed * 0.621371 : maxSpeed;
   const displaySpeedLimit =
     settings.speedUnit === 'mph' ? settings.speedLimitKmh * 0.621371 : settings.speedLimitKmh;
 
@@ -208,16 +207,13 @@ export default function RideDashboardScreen() {
           <View style={styles.metricsRow}>
             <StatCard
               label="AVERAGE SPEED"
-              value={formatSpeed(
-                movingSeconds > 0 ? (distanceKm / (movingSeconds / 3600)) : 0,
-                settings.speedUnit
-              )}
+              value={formatSpeed(averageSpeed, settings.speedUnit)}
               unit={settings.speedUnit.toUpperCase()}
               icon={<Gauge size={14} color={theme.primary} />}
             />
             <StatCard
               label="TOP MAX SPEED"
-              value={formatSpeed(displayMaxSpeed, settings.speedUnit)}
+              value={formatSpeed(maxSpeed, settings.speedUnit)}
               unit={settings.speedUnit.toUpperCase()}
               icon={<Flame size={14} color={theme.warning} />}
             />

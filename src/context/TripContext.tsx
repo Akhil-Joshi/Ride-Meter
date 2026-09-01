@@ -1,22 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
+import { DeviceMotion } from 'expo-sensors';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { dbService } from '../database/db';
-import { calculateHaversineDistance } from '../utils/formatting';
+import {
+  gyroMagnitude,
+  RideTracker,
+  type RideMotionState,
+  userAccelMagnitude,
+} from '../services/rideTracker';
 import { useSettings } from './SettingsContext';
 
 export type TripStatus = 'idle' | 'active' | 'paused' | 'completed';
 export type GPSQuality = 'searching' | 'locked' | 'weak' | 'disabled';
-
-export interface LocationPoint {
-  latitude: number;
-  longitude: number;
-  speedKmh: number;
-  accuracy: number;
-  timestamp: number;
-}
 
 interface TripContextType {
   tripStatus: TripStatus;
@@ -67,8 +65,6 @@ const TripContext = createContext<TripContextType>({
 });
 
 const ACTIVE_TRIP_KEY = '@ridemeter_active_trip_state';
-const STOP_SPEED_THRESHOLD_KMH = 2.0; // below 2 km/h counted as stopped
-const ALPHA_EMA = 0.25; // Speed smoothing coefficient
 
 export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { settings } = useSettings();
@@ -89,13 +85,29 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [hasRecoverableTrip, setHasRecoverableTrip] = useState<boolean>(false);
   const [recoverableTripData, setRecoverableTripData] = useState<any | null>(null);
 
-  const lastLocationRef = useRef<LocationPoint | null>(null);
+  const trackerRef = useRef(new RideTracker());
+  const lastCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
-  const simIntervalRef = useRef<any>(null);
-  const timerIntervalRef = useRef<any>(null);
+  const motionSubRef = useRef<{ remove: () => void } | null>(null);
+  const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<string | null>(null);
+  const settingsRef = useRef(settings);
+  const activeTripIdRef = useRef<number | null>(null);
+  const motionStateRef = useRef<RideMotionState>('stopped');
 
-  // Check for crashed/unfinished ride on mount
+  settingsRef.current = settings;
+  activeTripIdRef.current = activeTripId;
+
+  const applyTick = (speedKmh: number, totalMeters: number, state: RideMotionState) => {
+    motionStateRef.current = state;
+    setCurrentSpeed(speedKmh);
+    setDistanceKm(totalMeters / 1000);
+    if (state === 'moving' && speedKmh > 0) {
+      setMaxSpeed((prev) => Math.max(prev, speedKmh));
+    }
+  };
+
   useEffect(() => {
     AsyncStorage.getItem(ACTIVE_TRIP_KEY).then((data) => {
       if (data) {
@@ -110,36 +122,33 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
-  // Timer loop for duration, moving, and stopped time
   useEffect(() => {
     if (tripStatus === 'active') {
       timerIntervalRef.current = setInterval(() => {
         setDurationSeconds((prev) => prev + 1);
-        if (currentSpeed >= STOP_SPEED_THRESHOLD_KMH) {
+        if (motionStateRef.current === 'moving') {
           setMovingSeconds((prev) => prev + 1);
         } else {
           setStoppedSeconds((prev) => prev + 1);
         }
       }, 1000);
-    } else {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    } else if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
     }
     return () => {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
-  }, [tripStatus, currentSpeed]);
+  }, [tripStatus]);
 
-  // Recalculate Average Speed
   useEffect(() => {
     if (movingSeconds > 0 && distanceKm > 0) {
-      const avg = (distanceKm / (movingSeconds / 3600));
-      setAverageSpeed(parseFloat(avg.toFixed(1)));
+      setAverageSpeed(parseFloat((distanceKm / (movingSeconds / 3600)).toFixed(1)));
     } else {
       setAverageSpeed(0);
     }
   }, [distanceKm, movingSeconds]);
 
-  // Check Speed Alert Limit
   useEffect(() => {
     if (
       settings.speedAlertEnabled &&
@@ -152,28 +161,28 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentSpeed, settings.speedAlertEnabled, settings.speedLimitKmh]);
 
-  // Persist Active Trip Progress for Crash Recovery
   useEffect(() => {
     if (tripStatus === 'active' || tripStatus === 'paused') {
-      const stateToPersist = {
-        tripStatus,
-        activeTripId,
-        distanceKm,
-        currentSpeed,
-        maxSpeed,
-        durationSeconds,
-        movingSeconds,
-        stoppedSeconds,
-        startedAt: startedAtRef.current,
-        timestamp: Date.now(),
-      };
-      AsyncStorage.setItem(ACTIVE_TRIP_KEY, JSON.stringify(stateToPersist));
+      AsyncStorage.setItem(
+        ACTIVE_TRIP_KEY,
+        JSON.stringify({
+          tripStatus,
+          activeTripId,
+          distanceKm,
+          currentSpeed,
+          maxSpeed,
+          durationSeconds,
+          movingSeconds,
+          stoppedSeconds,
+          startedAt: startedAtRef.current,
+          timestamp: Date.now(),
+        })
+      );
     } else if (tripStatus === 'completed' || tripStatus === 'idle') {
       AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
     }
   }, [tripStatus, activeTripId, distanceKm, currentSpeed, maxSpeed, durationSeconds, movingSeconds, stoppedSeconds]);
 
-  // Handle Simulation Mode vs Real Location Watch
   useEffect(() => {
     if (tripStatus === 'active') {
       if (settings.simulatedRideMode) {
@@ -182,10 +191,56 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         startRealLocationUpdates();
       }
     } else {
-      stopLocationUpdates();
+      stopSensors();
     }
-    return () => stopLocationUpdates();
+    return () => stopSensors();
   }, [tripStatus, settings.simulatedRideMode]);
+
+  const ingestGpsFix = (fix: {
+    latitude: number;
+    longitude: number;
+    accuracyM: number;
+    speedMps: number | null;
+    timestampMs: number;
+  }, simulated: boolean) => {
+    if (fix.accuracyM <= 15) setGpsQuality('locked');
+    else if (fix.accuracyM <= 40) setGpsQuality('weak');
+    else setGpsQuality('searching');
+    setGpsAccuracy(Math.round(fix.accuracyM));
+
+    const tripId = activeTripIdRef.current;
+    if (tripId && !lastCoordsRef.current) {
+      dbService.saveTrip({
+        id: tripId,
+        start_latitude: fix.latitude,
+        start_longitude: fix.longitude,
+      });
+    }
+
+    const tick = trackerRef.current.ingestGps(fix, simulated);
+    lastCoordsRef.current = { latitude: fix.latitude, longitude: fix.longitude };
+    applyTick(tick.speedKmh, tick.totalMeters, tick.state);
+  };
+
+  const startMotionUpdates = async () => {
+    try {
+      const available = await DeviceMotion.isAvailableAsync();
+      if (!available) return;
+
+      const permission = await DeviceMotion.requestPermissionsAsync();
+      if (!permission.granted) return;
+
+      DeviceMotion.setUpdateInterval(50);
+      motionSubRef.current = DeviceMotion.addListener((data) => {
+        trackerRef.current.ingestImu({
+          userAccelMps2: userAccelMagnitude(data.acceleration, data.accelerationIncludingGravity),
+          gyroDps: gyroMagnitude(data.rotationRate),
+        });
+      });
+    } catch (err) {
+      console.warn('Device motion unavailable:', err);
+    }
+  };
 
   const startRealLocationUpdates = async () => {
     try {
@@ -195,21 +250,26 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       setGpsQuality('searching');
+      await startMotionUpdates();
 
       locationSubRef.current = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 1000,
-          distanceInterval: 2,
+          timeInterval: 500,
+          distanceInterval: 1,
         },
         (loc) => {
-          processNewLocation({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-            speedKmh: Math.max(0, (loc.coords.speed || 0) * 3.6),
-            accuracy: loc.coords.accuracy || 15,
-            timestamp: loc.timestamp,
-          });
+          const rawMps = loc.coords.speed;
+          ingestGpsFix(
+            {
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              accuracyM: loc.coords.accuracy || 25,
+              speedMps: rawMps != null && Number.isFinite(rawMps) && rawMps >= 0 ? rawMps : null,
+              timestampMs: loc.timestamp,
+            },
+            false
+          );
         }
       );
     } catch (err) {
@@ -219,7 +279,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const startSimulatedLocationUpdates = () => {
-    stopLocationUpdates();
+    stopSensors();
     setGpsQuality('locked');
     setGpsAccuracy(3);
 
@@ -229,90 +289,41 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let acceleration = 1.5;
 
     simIntervalRef.current = setInterval(() => {
-      // Vary speed realistically between 20 km/h and 115 km/h
       speed += acceleration + (Math.random() * 4 - 2);
       if (speed > 115) acceleration = -2;
       if (speed < 20) acceleration = 2;
       speed = Math.max(0, speed);
 
-      // Advance lat/lon slightly
       const distMeters = (speed / 3.6) * 1.0;
       lat += (distMeters / 111000) * 0.7;
       lon += (distMeters / (111000 * Math.cos(lat * (Math.PI / 180)))) * 0.7;
 
-      processNewLocation({
-        latitude: lat,
-        longitude: lon,
-        speedKmh: speed,
-        accuracy: 3.5,
-        timestamp: Date.now(),
-      });
+      ingestGpsFix(
+        {
+          latitude: lat,
+          longitude: lon,
+          accuracyM: 3.5,
+          speedMps: speed / 3.6,
+          timestampMs: Date.now(),
+        },
+        true
+      );
     }, 1000);
   };
 
-  const stopLocationUpdates = () => {
+  const stopSensors = () => {
     if (locationSubRef.current) {
       locationSubRef.current.remove();
       locationSubRef.current = null;
+    }
+    if (motionSubRef.current) {
+      motionSubRef.current.remove();
+      motionSubRef.current = null;
     }
     if (simIntervalRef.current) {
       clearInterval(simIntervalRef.current);
       simIntervalRef.current = null;
     }
-  };
-
-  const processNewLocation = (point: LocationPoint) => {
-    // 1. Update GPS status
-    if (point.accuracy <= 15) setGpsQuality('locked');
-    else if (point.accuracy <= 40) setGpsQuality('weak');
-    else setGpsQuality('searching');
-
-    setGpsAccuracy(Math.round(point.accuracy));
-
-    // 2. Reject noisy locations
-    if (point.accuracy > settings.accuracyThresholdMeters) return;
-
-    // Save initial high-precision start coordinates on first valid GPS point
-    if (activeTripId && !lastLocationRef.current) {
-      dbService.saveTrip({
-        id: activeTripId,
-        start_latitude: point.latitude,
-        start_longitude: point.longitude,
-      });
-    }
-
-    // 3. Smooth speed via Exponential Moving Average (EMA)
-    const MIN_MOVING_SPEED_KMH = 1.0; // Stationary Noise Filter threshold
-    let activeSpeed = 0;
-
-    setCurrentSpeed((prevSpeed) => {
-      const smoothed = ALPHA_EMA * point.speedKmh + (1 - ALPHA_EMA) * prevSpeed;
-      // Clamp speeds below 3.0 km/h to 0 (eliminates indoor GPS drift & desk jitter)
-      const finalSpeed = smoothed < MIN_MOVING_SPEED_KMH ? 0 : parseFloat(smoothed.toFixed(1));
-      activeSpeed = finalSpeed;
-
-      // Update max speed only when actively riding (reject spikes > 220 km/h)
-      if (finalSpeed >= MIN_MOVING_SPEED_KMH && finalSpeed <= 220) {
-        setMaxSpeed((prevMax) => Math.max(prevMax, finalSpeed));
-      }
-      return finalSpeed;
-    });
-
-    // 4. Calculate Distance via Haversine between consecutive points ONLY when moving
-    if (lastLocationRef.current) {
-      const distMeters = calculateHaversineDistance(
-        lastLocationRef.current.latitude,
-        lastLocationRef.current.longitude,
-        point.latitude,
-        point.longitude
-      );
-
-      // Only accumulate distance if actively moving (speed >= 3 km/h) & jump is reasonable
-      if (activeSpeed >= MIN_MOVING_SPEED_KMH && distMeters >= 2 && distMeters < 500) {
-        setDistanceKm((prev) => parseFloat((prev + distMeters / 1000).toFixed(3)));
-      }
-    }
-    lastLocationRef.current = point;
   };
 
   const startRide = async (tripType: string = 'Personal') => {
@@ -325,13 +336,12 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const startedAt = new Date().toISOString();
     startedAtRef.current = startedAt;
 
-    // Create DB trip record with high precision start coordinates
     const tripId = await dbService.saveTrip({
       started_at: startedAt,
       status: 'active',
       trip_type: tripType,
-      start_latitude: lastLocationRef.current?.latitude || undefined,
-      start_longitude: lastLocationRef.current?.longitude || undefined,
+      start_latitude: lastCoordsRef.current?.latitude,
+      start_longitude: lastCoordsRef.current?.longitude,
     });
 
     setActiveTripId(tripId);
@@ -342,7 +352,9 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDurationSeconds(0);
     setMovingSeconds(0);
     setStoppedSeconds(0);
-    lastLocationRef.current = null;
+    trackerRef.current.reset(0);
+    lastCoordsRef.current = null;
+    motionStateRef.current = 'stopped';
     setTripStatus('active');
   };
 
@@ -356,7 +368,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const endRide = async (): Promise<number | null> => {
     setTripStatus('completed');
-    stopLocationUpdates();
+    stopSensors();
 
     try {
       if (Platform.OS !== 'web') {
@@ -365,7 +377,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch { }
 
     const endedAt = new Date().toISOString();
-    let savedTripId = activeTripId;
+    const savedTripId = activeTripId;
+    const meters = trackerRef.current.getTotalMeters();
 
     if (savedTripId) {
       await dbService.saveTrip({
@@ -374,19 +387,18 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         duration_seconds: durationSeconds,
         moving_seconds: movingSeconds,
         stopped_seconds: stoppedSeconds,
-        distance_km: parseFloat(distanceKm.toFixed(2)),
+        distance_km: parseFloat((meters / 1000).toFixed(2)),
         average_speed_kmh: averageSpeed,
         max_speed_kmh: maxSpeed,
-        end_latitude: lastLocationRef.current?.latitude || undefined,
-        end_longitude: lastLocationRef.current?.longitude || undefined,
+        end_latitude: lastCoordsRef.current?.latitude,
+        end_longitude: lastCoordsRef.current?.longitude,
         status: 'completed',
       });
 
-      // Update bike odometer
       const bikes = await dbService.getBikes();
       if (bikes.length > 0) {
         const activeBike = bikes[0];
-        const newOdo = parseFloat((activeBike.current_odometer + distanceKm).toFixed(1));
+        const newOdo = parseFloat((activeBike.current_odometer + meters / 1000).toFixed(1));
         await dbService.saveBike({ id: activeBike.id, current_odometer: newOdo });
       }
     }
@@ -403,14 +415,18 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch { }
 
+    const recoveredKm = recoverableTripData.distanceKm || 0;
     setActiveTripId(recoverableTripData.activeTripId || null);
-    setDistanceKm(recoverableTripData.distanceKm || 0);
-    setCurrentSpeed(recoverableTripData.currentSpeed || 0);
+    setDistanceKm(recoveredKm);
+    setCurrentSpeed(0);
     setMaxSpeed(recoverableTripData.maxSpeed || 0);
     setDurationSeconds(recoverableTripData.durationSeconds || 0);
     setMovingSeconds(recoverableTripData.movingSeconds || 0);
     setStoppedSeconds(recoverableTripData.stoppedSeconds || 0);
     startedAtRef.current = recoverableTripData.startedAt || new Date().toISOString();
+    trackerRef.current.reset(recoveredKm * 1000);
+    lastCoordsRef.current = null;
+    motionStateRef.current = 'stopped';
 
     setHasRecoverableTrip(false);
     setRecoverableTripData(null);
@@ -425,7 +441,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetRide = async () => {
-    stopLocationUpdates();
+    stopSensors();
     if (activeTripId && tripStatus !== 'completed') {
       try {
         await dbService.deleteTrip(activeTripId);
@@ -443,7 +459,9 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMovingSeconds(0);
     setStoppedSeconds(0);
     setIsSpeedAlertActive(false);
-    lastLocationRef.current = null;
+    trackerRef.current.reset(0);
+    lastCoordsRef.current = null;
+    motionStateRef.current = 'stopped';
     startedAtRef.current = null;
     await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
   };
