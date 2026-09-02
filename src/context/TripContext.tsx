@@ -96,6 +96,12 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const activeTripIdRef = useRef<number | null>(null);
   const motionStateRef = useRef<RideMotionState>('stopped');
 
+  const durationSecondsRef = useRef(0);
+  const movingSecondsRef = useRef(0);
+  const stoppedSecondsRef = useRef(0);
+  const maxSpeedRef = useRef(0);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   settingsRef.current = settings;
   activeTripIdRef.current = activeTripId;
 
@@ -104,7 +110,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentSpeed(speedKmh);
     setDistanceKm(totalMeters / 1000);
     if (state === 'moving' && speedKmh > 0) {
-      setMaxSpeed((prev) => Math.max(prev, speedKmh));
+      maxSpeedRef.current = Math.max(maxSpeedRef.current, speedKmh);
+      setMaxSpeed(maxSpeedRef.current);
     }
   };
 
@@ -125,11 +132,14 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (tripStatus === 'active') {
       timerIntervalRef.current = setInterval(() => {
-        setDurationSeconds((prev) => prev + 1);
+        durationSecondsRef.current += 1;
+        setDurationSeconds(durationSecondsRef.current);
         if (motionStateRef.current === 'moving') {
-          setMovingSeconds((prev) => prev + 1);
+          movingSecondsRef.current += 1;
+          setMovingSeconds(movingSecondsRef.current);
         } else {
-          setStoppedSeconds((prev) => prev + 1);
+          stoppedSecondsRef.current += 1;
+          setStoppedSeconds(stoppedSecondsRef.current);
         }
       }, 1000);
     } else if (timerIntervalRef.current) {
@@ -162,12 +172,20 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [currentSpeed, settings.speedAlertEnabled, settings.speedLimitKmh]);
 
   useEffect(() => {
-    if (tripStatus === 'active' || tripStatus === 'paused') {
+    if (tripStatus !== 'active' && tripStatus !== 'paused') {
+      if (tripStatus === 'completed' || tripStatus === 'idle') {
+        AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
+      }
+      return;
+    }
+
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
       AsyncStorage.setItem(
         ACTIVE_TRIP_KEY,
         JSON.stringify({
           tripStatus,
-          activeTripId,
+          activeTripId: activeTripId == null ? null : Number(activeTripId),
           distanceKm,
           currentSpeed,
           maxSpeed,
@@ -178,9 +196,11 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
           timestamp: Date.now(),
         })
       );
-    } else if (tripStatus === 'completed' || tripStatus === 'idle') {
-      AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
-    }
+    }, 1500);
+
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
   }, [tripStatus, activeTripId, distanceKm, currentSpeed, maxSpeed, durationSeconds, movingSeconds, stoppedSeconds]);
 
   useEffect(() => {
@@ -255,8 +275,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       locationSubRef.current = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
-          timeInterval: 500,
-          distanceInterval: 1,
+          timeInterval: 200,
+          distanceInterval: 0,
         },
         (loc) => {
           const rawMps = loc.coords.speed;
@@ -336,22 +356,27 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const startedAt = new Date().toISOString();
     startedAtRef.current = startedAt;
 
-    const tripId = await dbService.saveTrip({
+    const tripId = Number(await dbService.saveTrip({
       started_at: startedAt,
       status: 'active',
       trip_type: tripType,
       start_latitude: lastCoordsRef.current?.latitude,
       start_longitude: lastCoordsRef.current?.longitude,
-    });
+    }));
 
-    setActiveTripId(tripId);
+    activeTripIdRef.current = tripId || null;
+    setActiveTripId(tripId || null);
     setDistanceKm(0);
     setCurrentSpeed(0);
     setAverageSpeed(0);
     setMaxSpeed(0);
+    maxSpeedRef.current = 0;
     setDurationSeconds(0);
     setMovingSeconds(0);
     setStoppedSeconds(0);
+    durationSecondsRef.current = 0;
+    movingSecondsRef.current = 0;
+    stoppedSecondsRef.current = 0;
     trackerRef.current.reset(0);
     lastCoordsRef.current = null;
     motionStateRef.current = 'stopped';
@@ -367,7 +392,6 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const endRide = async (): Promise<number | null> => {
-    setTripStatus('completed');
     stopSensors();
 
     try {
@@ -377,34 +401,46 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch { }
 
     const endedAt = new Date().toISOString();
-    const savedTripId = activeTripId;
     const meters = trackerRef.current.getTotalMeters();
+    const snapshot = {
+      ended_at: endedAt,
+      duration_seconds: durationSecondsRef.current,
+      moving_seconds: movingSecondsRef.current,
+      stopped_seconds: stoppedSecondsRef.current,
+      distance_km: parseFloat((meters / 1000).toFixed(2)),
+      average_speed_kmh: movingSecondsRef.current > 0
+        ? parseFloat(((meters / 1000) / (movingSecondsRef.current / 3600)).toFixed(1))
+        : 0,
+      max_speed_kmh: maxSpeedRef.current,
+      end_latitude: lastCoordsRef.current?.latitude,
+      end_longitude: lastCoordsRef.current?.longitude,
+      status: 'completed' as const,
+    };
 
-    if (savedTripId) {
-      await dbService.saveTrip({
-        id: savedTripId,
-        ended_at: endedAt,
-        duration_seconds: durationSeconds,
-        moving_seconds: movingSeconds,
-        stopped_seconds: stoppedSeconds,
-        distance_km: parseFloat((meters / 1000).toFixed(2)),
-        average_speed_kmh: averageSpeed,
-        max_speed_kmh: maxSpeed,
-        end_latitude: lastCoordsRef.current?.latitude,
-        end_longitude: lastCoordsRef.current?.longitude,
-        status: 'completed',
-      });
+    let savedTripId = activeTripIdRef.current ? Number(activeTripIdRef.current) : 0;
+    try {
+      if (savedTripId) {
+        savedTripId = Number(await dbService.saveTrip({ id: savedTripId, ...snapshot }));
+      } else {
+        savedTripId = Number(await dbService.saveTrip({
+          started_at: startedAtRef.current || endedAt,
+          ...snapshot,
+        }));
+      }
 
       const bikes = await dbService.getBikes();
-      if (bikes.length > 0) {
+      if (bikes.length > 0 && meters > 0) {
         const activeBike = bikes[0];
         const newOdo = parseFloat((activeBike.current_odometer + meters / 1000).toFixed(1));
         await dbService.saveBike({ id: activeBike.id, current_odometer: newOdo });
       }
+    } catch (e) {
+      console.warn('End ride save failed:', e);
     }
 
+    setTripStatus('completed');
     await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
-    return savedTripId;
+    return savedTripId || null;
   };
 
   const recoverRide = async () => {
@@ -427,6 +463,10 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     trackerRef.current.reset(recoveredKm * 1000);
     lastCoordsRef.current = null;
     motionStateRef.current = 'stopped';
+    durationSecondsRef.current = recoverableTripData.durationSeconds || 0;
+    movingSecondsRef.current = recoverableTripData.movingSeconds || 0;
+    stoppedSecondsRef.current = recoverableTripData.stoppedSeconds || 0;
+    maxSpeedRef.current = recoverableTripData.maxSpeed || 0;
 
     setHasRecoverableTrip(false);
     setRecoverableTripData(null);
@@ -462,6 +502,10 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     trackerRef.current.reset(0);
     lastCoordsRef.current = null;
     motionStateRef.current = 'stopped';
+    durationSecondsRef.current = 0;
+    movingSecondsRef.current = 0;
+    stoppedSecondsRef.current = 0;
+    maxSpeedRef.current = 0;
     startedAtRef.current = null;
     await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
   };

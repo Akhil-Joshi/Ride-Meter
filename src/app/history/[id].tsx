@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -20,25 +20,33 @@ import { StatCard } from '../../components/StatCard';
 import { ExportService } from '../../services/exportService';
 
 export default function TripDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string | string[] }>();
+  const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const tripId = Number(rawId);
   const { settings, theme } = useSettings();
   const [trip, setTrip] = useState<Trip | null>(null);
+  const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState('');
   const [tripType, setTripType] = useState<string>('Personal');
   const [isEditing, setIsEditing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchTrip = React.useCallback(() => {
-    if (id) {
-      dbService.getTripById(parseInt(id, 10)).then((data) => {
-        if (data) {
-          setTrip(data);
-          setNotes(data.notes || '');
-          setTripType(data.trip_type || 'Personal');
-        }
-      });
+  const fetchTrip = React.useCallback(async () => {
+    if (!tripId) {
+      setTrip(null);
+      setLoading(false);
+      return;
     }
-  }, [id]);
+    const data = await dbService.getTripById(tripId);
+    if (data) {
+      setTrip(data);
+      setNotes(data.notes || '');
+      setTripType(data.trip_type || 'Personal');
+    } else {
+      setTrip(null);
+    }
+    setLoading(false);
+  }, [tripId]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -51,6 +59,16 @@ export default function TripDetailScreen() {
     await fetchTrip();
     setRefreshing(false);
   }, [fetchTrip]);
+
+  if (loading) {
+    return (
+      <SafeAreaView edges={['bottom']} style={[styles.safeArea, { backgroundColor: theme.bg }]}>
+        <View style={styles.center}>
+          <Text style={[styles.loadingText, { color: theme.textMuted }]}>Loading trip log...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!trip) {
     return (

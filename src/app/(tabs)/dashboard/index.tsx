@@ -71,7 +71,7 @@ export default function RideDashboardScreen() {
   const handleEndRide = async () => {
     const tripId = await endRide();
     if (tripId) {
-      router.push(`/history/${tripId}`);
+      router.push(`/history/${Number(tripId)}`);
     }
   };
 

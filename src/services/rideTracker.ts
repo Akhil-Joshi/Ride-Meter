@@ -43,10 +43,15 @@ const MAX_SPEED_KMH = 220;
 const MAX_ACCURACY_M = 80;
 const MIN_DT_SEC = 0.35;
 const MIN_STEP_M = 1.5;
-const GPS_MOVE_KMH = 12;
-const GPS_STOP_KMH = 8;
-const EMA_UP = 0.35;
-const EMA_DOWN = 0.5;
+/** Show crawl speeds like Maps (1–7 km/h). IMU still keeps a parked phone at 0. */
+const LIVE_MOVE_KMH = 1;
+const STRONG_MOVE_KMH = 12;
+const GPS_STOP_KMH = 0.8;
+/** Follow GNSS speed closely (Maps-style). Low alpha is what made 25 feel like 21. */
+const EMA_UP = 0.82;
+const EMA_DOWN = 0.72;
+const EMA_CATCHUP = 0.92;
+const CATCHUP_ERR_KMH = 3.5;
 const STOP_CONFIRM = 2;
 const IMU_WINDOW = 20;
 const IMU_STILL_ACCEL = 0.45;
@@ -117,11 +122,35 @@ export class RideTracker {
       this.stopAnchor = fix;
       this.state = 'stopped';
       this.speedEma = 0;
+      const dopplerKmh =
+        fix.speedMps != null && Number.isFinite(fix.speedMps) && fix.speedMps >= 0
+          ? fix.speedMps * 3.6
+          : null;
+      this.maybeStartMoving(
+        dopplerKmh,
+        dopplerKmh ?? 0,
+        0,
+        0,
+        simulated ? false : this.isImuStill(),
+        simulated,
+        fix
+      );
       return this.snapshot(0);
     }
 
     const dtSec = (fix.timestampMs - this.lastFix.timestampMs) / 1000;
+    const dopplerKmh =
+      fix.speedMps != null && Number.isFinite(fix.speedMps) && fix.speedMps >= 0
+        ? fix.speedMps * 3.6
+        : null;
+    const imuStill = simulated ? false : this.isImuStill();
+
+    // Always refresh the gauge from Doppler even on sub-350ms GPS bursts.
     if (dtSec >= 0 && dtSec < MIN_DT_SEC) {
+      this.maybeStartMoving(dopplerKmh, dopplerKmh ?? 0, 0, 0, imuStill, simulated, fix);
+      if (this.state === 'moving') {
+        this.followSpeed(dopplerKmh, null);
+      }
       return this.snapshot(0);
     }
 
@@ -136,25 +165,20 @@ export class RideTracker {
     const maxJumpM = Math.max(40, (MAX_SPEED_KMH / 3.6) * dt * 1.5);
     if (distM > maxJumpM) {
       this.lastFix = fix;
+      this.maybeStartMoving(dopplerKmh, dopplerKmh ?? 0, 0, 0, imuStill, simulated, fix);
+      if (this.state === 'moving') this.followSpeed(dopplerKmh, null);
       return this.snapshot(0);
     }
 
-    const dopplerKmh =
-      fix.speedMps != null && fix.speedMps >= 0 ? fix.speedMps * 3.6 : null;
     const impliedKmh = (distM / dt) * 3.6;
     const clusterR = this.clusterRadiusM(fix.accuracyM);
-    const imuStill = simulated ? false : this.isImuStill();
+
+    this.maybeStartMoving(dopplerKmh, impliedKmh, distM, clusterR, imuStill, simulated, fix);
 
     if (this.state === 'stopped') {
-      return this.handleStopped({
-        fix,
-        distM,
-        impliedKmh,
-        dopplerKmh,
-        clusterR,
-        imuStill,
-        simulated,
-      });
+      this.lastFix = fix;
+      this.speedEma = 0;
+      return this.snapshot(0);
     }
 
     return this.handleMoving({
@@ -198,49 +222,53 @@ export class RideTracker {
     };
   }
 
-  private handleStopped(args: {
-    fix: GpsFix;
-    distM: number;
-    impliedKmh: number;
-    dopplerKmh: number | null;
-    clusterR: number;
-    imuStill: boolean;
-    simulated: boolean;
-  }): RideTick {
-    const { fix, impliedKmh, dopplerKmh, clusterR, imuStill, simulated } = args;
-    const anchor = this.stopAnchor || this.lastFix!;
-    const fromAnchor = calculateHaversineDistance(
-      anchor.latitude,
-      anchor.longitude,
-      fix.latitude,
-      fix.longitude
+  private followSpeed(dopplerKmh: number | null, impliedKmh: number | null): void {
+    const instant = clamp(
+      dopplerKmh != null ? dopplerKmh : impliedKmh ?? this.speedEma,
+      0,
+      MAX_SPEED_KMH
     );
+    const err = Math.abs(instant - this.speedEma);
+    let alpha = instant >= this.speedEma ? EMA_UP : EMA_DOWN;
+    if (err >= CATCHUP_ERR_KMH) alpha = EMA_CATCHUP;
+    if (dopplerKmh == null) alpha *= 0.55;
+    this.speedEma = alpha * instant + (1 - alpha) * this.speedEma;
+  }
+
+  private maybeStartMoving(
+    dopplerKmh: number | null,
+    impliedKmh: number,
+    distM: number,
+    clusterR: number,
+    imuStill: boolean,
+    simulated: boolean,
+    fix: GpsFix
+  ): void {
+    if (this.state === 'moving') return;
 
     const gpsSpeed = dopplerKmh ?? impliedKmh;
-    const gpsSaysMove = gpsSpeed >= GPS_MOVE_KMH || impliedKmh >= GPS_MOVE_KMH + 2;
-    const leftCluster = fromAnchor > clusterR;
+    const liveDoppler = dopplerKmh != null && dopplerKmh >= LIVE_MOVE_KMH;
+    const strongDoppler = dopplerKmh != null && dopplerKmh >= STRONG_MOVE_KMH;
+    const leftCluster =
+      clusterR > 0 && this.stopAnchor
+        ? calculateHaversineDistance(
+            this.stopAnchor.latitude,
+            this.stopAnchor.longitude,
+            fix.latitude,
+            fix.longitude
+          ) > clusterR
+        : false;
 
     const shouldMove = simulated
-      ? gpsSaysMove
-      : leftCluster && gpsSaysMove && !imuStill;
+      ? gpsSpeed >= LIVE_MOVE_KMH
+      : strongDoppler || (liveDoppler && !imuStill) || (leftCluster && gpsSpeed >= LIVE_MOVE_KMH && !imuStill);
 
-    this.lastFix = fix;
-
-    if (!shouldMove) {
-      this.speedEma = 0;
-      if (!leftCluster) {
-        this.stopAnchor = anchor;
-      } else if (imuStill || !gpsSaysMove) {
-        this.stopAnchor = fix;
-      }
-      return this.snapshot(0);
-    }
+    if (!shouldMove) return;
 
     this.state = 'moving';
     this.stopHits = 0;
     this.stopAnchor = null;
     this.speedEma = clamp(gpsSpeed, 0, MAX_SPEED_KMH);
-    return this.snapshot(0);
   }
 
   private handleMoving(args: {
@@ -256,7 +284,7 @@ export class RideTracker {
     const gpsSpeed = dopplerKmh ?? impliedKmh;
     const wantStop =
       !simulated &&
-      (imuStill || (gpsSpeed < GPS_STOP_KMH && impliedKmh < GPS_STOP_KMH + 2 && distM < clusterR));
+      (imuStill || (gpsSpeed < GPS_STOP_KMH && (dopplerKmh == null || dopplerKmh < GPS_STOP_KMH)));
 
     if (wantStop) {
       this.stopHits += 1;
@@ -272,10 +300,8 @@ export class RideTracker {
       this.stopHits = 0;
     }
 
-    let instant = dopplerKmh != null && fix.accuracyM <= 45 ? dopplerKmh * 0.8 + impliedKmh * 0.2 : impliedKmh;
-    instant = clamp(instant, 0, MAX_SPEED_KMH);
-    const alpha = instant >= this.speedEma ? EMA_UP : EMA_DOWN;
-    this.speedEma = alpha * instant + (1 - alpha) * this.speedEma;
+    let instant = dopplerKmh != null ? dopplerKmh : impliedKmh;
+    this.followSpeed(dopplerKmh, instant);
 
     this.lastFix = fix;
 

@@ -11,6 +11,12 @@ import {
   Maintenance,
 } from '../utils/mockData';
 
+function toId(value: unknown): number {
+  if (typeof value === 'bigint') return Number(value);
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 const ASYNC_KEYS = {
   BIKES: '@ridemeter_bikes',
   TRIPS: '@ridemeter_trips',
@@ -46,35 +52,12 @@ export class DatabaseService {
         const SQLite = require('expo-sqlite');
         this.sqliteDb = await SQLite.openDatabaseAsync('ridemeter.db');
         const { CREATE_TABLES_SQL } = require('./schema');
-        const statements = CREATE_TABLES_SQL
-          .split(';')
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0);
-
-        for (const stmt of statements) {
-          await this.sqliteDb.execAsync(stmt);
-        }
+        await this.sqliteDb.execAsync(CREATE_TABLES_SQL);
         await this.seedInitialDataIfEmpty();
       } catch (err) {
-        // Automatically repair stale/corrupted local SQLite database files from older builds
-        try {
-          const SQLite = require('expo-sqlite');
-          await SQLite.deleteDatabaseAsync('ridemeter.db');
-          this.sqliteDb = await SQLite.openDatabaseAsync('ridemeter.db');
-          const { CREATE_TABLES_SQL } = require('./schema');
-          const statements = CREATE_TABLES_SQL
-            .split(';')
-            .map((s: string) => s.trim())
-            .filter((s: string) => s.length > 0);
-
-          for (const stmt of statements) {
-            await this.sqliteDb.execAsync(stmt);
-          }
-          await this.seedInitialDataIfEmpty();
-        } catch (resetErr) {
-          this.isNative = false;
-          await this.seedWebStorageIfEmpty();
-        }
+        console.warn('SQLite init failed; keeping existing file and using AsyncStorage fallback:', err);
+        this.isNative = false;
+        await this.seedWebStorageIfEmpty();
       }
     } else {
       await this.seedWebStorageIfEmpty();
@@ -210,7 +193,8 @@ export class DatabaseService {
     await this.ensureInitialized();
     if (this.isNative && this.sqliteDb) {
       try {
-        return await this.sqliteDb.getAllAsync('SELECT * FROM trips ORDER BY started_at DESC;');
+        const rows = await this.sqliteDb.getAllAsync('SELECT * FROM trips ORDER BY started_at DESC;');
+        return (rows as Trip[]).map((t) => ({ ...t, id: toId(t.id) }));
       } catch (e) {
         console.warn('Native getTrips failed, fallback to AsyncStorage:', e);
         this.isNative = false;
@@ -223,19 +207,76 @@ export class DatabaseService {
 
   public async getTripById(id: number): Promise<Trip | null> {
     await this.ensureInitialized();
+    const wanted = toId(id);
+    if (!wanted) return null;
+
+    if (this.isNative && this.sqliteDb) {
+      try {
+        const row = await this.sqliteDb.getFirstAsync('SELECT * FROM trips WHERE id = ?;', [wanted]);
+        if (row) return { ...row, id: toId(row.id) };
+      } catch (e) {
+        console.warn('Native getTripById failed, fallback to AsyncStorage:', e);
+        this.isNative = false;
+      }
+    }
+
     const trips = await this.getTrips();
-    return trips.find((t) => t.id === id) || null;
+    return trips.find((t) => toId(t.id) === wanted) || null;
+  }
+
+  private async insertTripSqlite(trip: Partial<Trip>, explicitId?: number): Promise<number> {
+    const createdAt = new Date().toISOString();
+    const cols = `bike_id, started_at, ended_at, duration_seconds, moving_seconds, stopped_seconds, distance_km, average_speed_kmh, max_speed_kmh, start_latitude, start_longitude, end_latitude, end_longitude, trip_type, notes, is_favorite, status, created_at`;
+    const values = [
+      trip.bike_id || 1,
+      trip.started_at || createdAt,
+      trip.ended_at ?? null,
+      trip.duration_seconds || 0,
+      trip.moving_seconds || 0,
+      trip.stopped_seconds || 0,
+      trip.distance_km || 0,
+      trip.average_speed_kmh || 0,
+      trip.max_speed_kmh || 0,
+      trip.start_latitude ?? null,
+      trip.start_longitude ?? null,
+      trip.end_latitude ?? null,
+      trip.end_longitude ?? null,
+      trip.trip_type || 'Personal',
+      trip.notes || '',
+      trip.is_favorite ? 1 : 0,
+      trip.status || 'active',
+      createdAt,
+    ];
+
+    if (explicitId) {
+      await this.sqliteDb.runAsync(
+        `INSERT INTO trips (id, ${cols}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        [explicitId, ...values]
+      );
+      return explicitId;
+    }
+
+    const res = await this.sqliteDb.runAsync(
+      `INSERT INTO trips (${cols}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      values
+    );
+    let insertId = toId(res.lastInsertRowId);
+    if (!insertId) {
+      const row = await this.sqliteDb.getFirstAsync('SELECT last_insert_rowid() AS id;');
+      insertId = toId(row?.id);
+    }
+    return insertId;
   }
 
   public async saveTrip(trip: Partial<Trip>): Promise<number> {
     await this.ensureInitialized();
+    const tripId = toId(trip.id);
     if (this.isNative && this.sqliteDb) {
       try {
-        if (trip.id) {
-          const existingList = await this.sqliteDb.getAllAsync('SELECT * FROM trips WHERE id=?;', [trip.id]);
-          if (existingList && existingList.length > 0) {
-            const existing = existingList[0];
-            const updated = { ...existing, ...trip };
+        if (tripId) {
+          const existing = await this.sqliteDb.getFirstAsync('SELECT * FROM trips WHERE id=?;', [tripId]);
+          if (existing) {
+            const updated = { ...existing, ...trip, id: tripId };
             await this.sqliteDb.runAsync(
               `UPDATE trips SET bike_id=?, started_at=?, ended_at=?, duration_seconds=?, moving_seconds=?, stopped_seconds=?, distance_km=?, average_speed_kmh=?, max_speed_kmh=?, start_latitude=?, start_longitude=?, end_latitude=?, end_longitude=?, trip_type=?, notes=?, is_favorite=?, status=? WHERE id=?;`,
               [
@@ -256,38 +297,14 @@ export class DatabaseService {
                 updated.notes ?? '',
                 updated.is_favorite ? 1 : 0,
                 updated.status || 'completed',
-                trip.id,
+                tripId,
               ]
             );
+            return tripId;
           }
-          return trip.id;
-        } else {
-          const res = await this.sqliteDb.runAsync(
-            `INSERT INTO trips (bike_id, started_at, ended_at, duration_seconds, moving_seconds, stopped_seconds, distance_km, average_speed_kmh, max_speed_kmh, start_latitude, start_longitude, end_latitude, end_longitude, trip_type, notes, is_favorite, status, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-            [
-              trip.bike_id || 1,
-              trip.started_at || new Date().toISOString(),
-              trip.ended_at || null,
-              trip.duration_seconds || 0,
-              trip.moving_seconds || 0,
-              trip.stopped_seconds || 0,
-              trip.distance_km || 0,
-              trip.average_speed_kmh || 0,
-              trip.max_speed_kmh || 0,
-              trip.start_latitude || 0,
-              trip.start_longitude || 0,
-              trip.end_latitude || 0,
-              trip.end_longitude || 0,
-              trip.trip_type || 'Personal',
-              trip.notes || '',
-              trip.is_favorite ? 1 : 0,
-              trip.status || 'active',
-              new Date().toISOString(),
-            ]
-          );
-          return res.lastInsertRowId;
+          return await this.insertTripSqlite(trip, tripId);
         }
+        return await this.insertTripSqlite(trip);
       } catch (e) {
         console.warn('Native saveTrip failed, fallback to AsyncStorage:', e);
         this.isNative = false;
@@ -295,37 +312,43 @@ export class DatabaseService {
     }
 
     const trips = await this.getTrips();
-    if (trip.id) {
-      const idx = trips.findIndex((t) => t.id === trip.id);
-      if (idx !== -1) trips[idx] = { ...trips[idx], ...trip } as Trip;
-    } else {
-      const newId = Date.now();
-      const newTrip: Trip = {
-        id: newId,
-        bike_id: trip.bike_id || 1,
-        started_at: trip.started_at || new Date().toISOString(),
-        ended_at: trip.ended_at || '',
-        duration_seconds: trip.duration_seconds || 0,
-        moving_seconds: trip.moving_seconds || 0,
-        stopped_seconds: trip.stopped_seconds || 0,
-        distance_km: trip.distance_km || 0,
-        average_speed_kmh: trip.average_speed_kmh || 0,
-        max_speed_kmh: trip.max_speed_kmh || 0,
-        start_latitude: trip.start_latitude || 0,
-        start_longitude: trip.start_longitude || 0,
-        end_latitude: trip.end_latitude || 0,
-        end_longitude: trip.end_longitude || 0,
-        trip_type: trip.trip_type || 'Personal',
-        notes: trip.notes || '',
-        is_favorite: trip.is_favorite ? 1 : 0,
-        status: trip.status || 'active',
-        created_at: new Date().toISOString(),
-      };
-      trips.unshift(newTrip);
-      trip.id = newId;
+    const makeRow = (id: number): Trip => ({
+      id,
+      bike_id: trip.bike_id || 1,
+      started_at: trip.started_at || new Date().toISOString(),
+      ended_at: trip.ended_at || '',
+      duration_seconds: trip.duration_seconds || 0,
+      moving_seconds: trip.moving_seconds || 0,
+      stopped_seconds: trip.stopped_seconds || 0,
+      distance_km: trip.distance_km || 0,
+      average_speed_kmh: trip.average_speed_kmh || 0,
+      max_speed_kmh: trip.max_speed_kmh || 0,
+      start_latitude: trip.start_latitude || 0,
+      start_longitude: trip.start_longitude || 0,
+      end_latitude: trip.end_latitude || 0,
+      end_longitude: trip.end_longitude || 0,
+      trip_type: trip.trip_type || 'Personal',
+      notes: trip.notes || '',
+      is_favorite: trip.is_favorite ? 1 : 0,
+      status: trip.status || 'active',
+      created_at: new Date().toISOString(),
+    });
+
+    if (tripId) {
+      const idx = trips.findIndex((t) => toId(t.id) === tripId);
+      if (idx !== -1) {
+        trips[idx] = { ...trips[idx], ...trip, id: tripId } as Trip;
+      } else {
+        trips.unshift(makeRow(tripId));
+      }
+      await AsyncStorage.setItem(ASYNC_KEYS.TRIPS, JSON.stringify(trips));
+      return tripId;
     }
+
+    const newId = Date.now();
+    trips.unshift(makeRow(newId));
     await AsyncStorage.setItem(ASYNC_KEYS.TRIPS, JSON.stringify(trips));
-    return trip.id || Date.now();
+    return newId;
   }
 
   public async deleteTrip(id: number): Promise<void> {
