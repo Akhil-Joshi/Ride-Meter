@@ -52,7 +52,7 @@ const EMA_UP = 0.82;
 const EMA_DOWN = 0.72;
 const EMA_CATCHUP = 0.92;
 const CATCHUP_ERR_KMH = 3.5;
-const STOP_CONFIRM = 2;
+const STOP_CONFIRM = 3;
 const IMU_WINDOW = 20;
 const IMU_STILL_ACCEL = 0.45;
 const IMU_STILL_GYRO = 18;
@@ -223,6 +223,11 @@ export class RideTracker {
   }
 
   private followSpeed(dopplerKmh: number | null, impliedKmh: number | null): void {
+    if (dopplerKmh == null && impliedKmh == null) return;
+    // GNSS sometimes reports 0 for a tick while moving — do not yank the needle.
+    if (dopplerKmh != null && dopplerKmh < 1.2 && this.speedEma >= 6) {
+      return;
+    }
     const instant = clamp(
       dopplerKmh != null ? dopplerKmh : impliedKmh ?? this.speedEma,
       0,
@@ -280,11 +285,11 @@ export class RideTracker {
     imuStill: boolean;
     simulated: boolean;
   }): RideTick {
-    const { fix, distM, impliedKmh, dopplerKmh, clusterR, imuStill, simulated } = args;
+    const { fix, distM, impliedKmh, dopplerKmh, simulated } = args;
     const gpsSpeed = dopplerKmh ?? impliedKmh;
-    const wantStop =
-      !simulated &&
-      (imuStill || (gpsSpeed < GPS_STOP_KMH && (dopplerKmh == null || dopplerKmh < GPS_STOP_KMH)));
+    const gpsDropout = this.speedEma >= 6 && (gpsSpeed == null || gpsSpeed < 1.2);
+    // Constant-speed riding has almost no accel — IMU "still" must not zero the gauge.
+    const wantStop = !simulated && !gpsDropout && gpsSpeed < GPS_STOP_KMH;
 
     if (wantStop) {
       this.stopHits += 1;
@@ -300,8 +305,9 @@ export class RideTracker {
       this.stopHits = 0;
     }
 
-    let instant = dopplerKmh != null ? dopplerKmh : impliedKmh;
-    this.followSpeed(dopplerKmh, instant);
+    if (!gpsDropout) {
+      this.followSpeed(dopplerKmh, impliedKmh);
+    }
 
     this.lastFix = fix;
 

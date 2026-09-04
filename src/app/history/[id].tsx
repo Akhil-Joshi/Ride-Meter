@@ -14,7 +14,7 @@ import { useLocalSearchParams, router, Stack, useFocusEffect } from 'expo-router
 import { Download, Trash2, Clock, Gauge, Flame, MapPin, Save, Edit3 } from 'lucide-react-native';
 import { dbService } from '../../database/db';
 import { Trip } from '../../utils/mockData';
-import { formatDistance, formatDuration, formatSpeed, formatDate } from '../../utils/formatting';
+import { formatDistance, formatDuration, formatSpeed, formatDate, formatLatLng } from '../../utils/formatting';
 import { useSettings } from '../../context/SettingsContext';
 import { StatCard } from '../../components/StatCard';
 import { ExportService } from '../../services/exportService';
@@ -221,18 +221,14 @@ export default function TripDetailScreen() {
             <MapPin size={16} color={theme.primary} />
             <Text style={[styles.coordLabel, { color: theme.textMuted }]}>START:</Text>
             <Text style={[styles.coordVal, { color: theme.textPrimary }]}>
-              {trip.start_latitude !== undefined && trip.start_latitude !== null
-                ? `${trip.start_latitude.toFixed(7)}, ${trip.start_longitude?.toFixed(7)}`
-                : '27.7172456, 85.3240123'}
+              {formatLatLng(trip.start_latitude, trip.start_longitude)}
             </Text>
           </View>
           <View style={[styles.coordRow, { borderTopWidth: 1, borderTopColor: theme.cardBorder }]}>
             <MapPin size={16} color={theme.primaryGlow} />
             <Text style={[styles.coordLabel, { color: theme.textMuted }]}>END:</Text>
             <Text style={[styles.coordVal, { color: theme.textPrimary }]}>
-              {trip.end_latitude !== undefined && trip.end_latitude !== null
-                ? `${trip.end_latitude.toFixed(7)}, ${trip.end_longitude?.toFixed(7)}`
-                : '27.6710891, 85.3120456'}
+              {formatLatLng(trip.end_latitude, trip.end_longitude)}
             </Text>
           </View>
         </View>

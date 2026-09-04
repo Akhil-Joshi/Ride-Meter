@@ -11,6 +11,15 @@ export function formatDuration(totalSeconds: number): string {
   return `${pad(minutes)}:${pad(seconds)}`;
 }
 
+export function formatLatLng(lat?: number | null, lon?: number | null): string {
+  const la = Number(lat);
+  const lo = Number(lon);
+  if (!Number.isFinite(la) || !Number.isFinite(lo) || (Math.abs(la) < 0.0001 && Math.abs(lo) < 0.0001)) {
+    return 'No GPS fix';
+  }
+  return `${la.toFixed(7)}, ${lo.toFixed(7)}`;
+}
+
 export function formatSpeed(speedKmh: number, unit: 'kmh' | 'mph' = 'kmh'): string {
   const speed = unit === 'mph' ? speedKmh * 0.621371 : speedKmh;
   return speed < 0.5 ? '0' : speed.toFixed(1);

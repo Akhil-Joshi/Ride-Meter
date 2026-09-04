@@ -17,6 +17,13 @@ function toId(value: unknown): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+function coordOrNull(value: unknown): number | null {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (Math.abs(n) < 0.0001) return null;
+  return n;
+}
+
 const ASYNC_KEYS = {
   BIKES: '@ridemeter_bikes',
   TRIPS: '@ridemeter_trips',
@@ -237,10 +244,10 @@ export class DatabaseService {
       trip.distance_km || 0,
       trip.average_speed_kmh || 0,
       trip.max_speed_kmh || 0,
-      trip.start_latitude ?? null,
-      trip.start_longitude ?? null,
-      trip.end_latitude ?? null,
-      trip.end_longitude ?? null,
+      coordOrNull(trip.start_latitude),
+      coordOrNull(trip.start_longitude),
+      coordOrNull(trip.end_latitude),
+      coordOrNull(trip.end_longitude),
       trip.trip_type || 'Personal',
       trip.notes || '',
       trip.is_favorite ? 1 : 0,
@@ -289,10 +296,10 @@ export class DatabaseService {
                 updated.distance_km ?? 0,
                 updated.average_speed_kmh ?? 0,
                 updated.max_speed_kmh ?? 0,
-                updated.start_latitude ?? null,
-                updated.start_longitude ?? null,
-                updated.end_latitude ?? null,
-                updated.end_longitude ?? null,
+                coordOrNull(trip.start_latitude) ?? coordOrNull(existing.start_latitude),
+                coordOrNull(trip.start_longitude) ?? coordOrNull(existing.start_longitude),
+                coordOrNull(trip.end_latitude) ?? coordOrNull(existing.end_latitude),
+                coordOrNull(trip.end_longitude) ?? coordOrNull(existing.end_longitude),
                 updated.trip_type || 'Personal',
                 updated.notes ?? '',
                 updated.is_favorite ? 1 : 0,
@@ -323,10 +330,10 @@ export class DatabaseService {
       distance_km: trip.distance_km || 0,
       average_speed_kmh: trip.average_speed_kmh || 0,
       max_speed_kmh: trip.max_speed_kmh || 0,
-      start_latitude: trip.start_latitude || 0,
-      start_longitude: trip.start_longitude || 0,
-      end_latitude: trip.end_latitude || 0,
-      end_longitude: trip.end_longitude || 0,
+      start_latitude: coordOrNull(trip.start_latitude) ?? 0,
+      start_longitude: coordOrNull(trip.start_longitude) ?? 0,
+      end_latitude: coordOrNull(trip.end_latitude) ?? 0,
+      end_longitude: coordOrNull(trip.end_longitude) ?? 0,
       trip_type: trip.trip_type || 'Personal',
       notes: trip.notes || '',
       is_favorite: trip.is_favorite ? 1 : 0,

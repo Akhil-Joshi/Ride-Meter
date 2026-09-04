@@ -87,6 +87,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const trackerRef = useRef(new RideTracker());
   const lastCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const startCoordsRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
   const motionSubRef = useRef<{ remove: () => void } | null>(null);
   const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -152,7 +153,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [tripStatus]);
 
   useEffect(() => {
-    if (movingSeconds > 0 && distanceKm > 0) {
+    const meters = distanceKm * 1000;
+    if (movingSeconds >= 12 && meters >= 40) {
       setAverageSpeed(parseFloat((distanceKm / (movingSeconds / 3600)).toFixed(1)));
     } else {
       setAverageSpeed(0);
@@ -216,6 +218,38 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => stopSensors();
   }, [tripStatus, settings.simulatedRideMode]);
 
+  const readCurrentCoords = async (): Promise<{ latitude: number; longitude: number } | null> => {
+    if (settingsRef.current.simulatedRideMode) {
+      return lastCoordsRef.current;
+    }
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return lastCoordsRef.current;
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.BestForNavigation,
+      });
+      const { latitude, longitude } = pos.coords;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return lastCoordsRef.current;
+      }
+      lastCoordsRef.current = { latitude, longitude };
+      return { latitude, longitude };
+    } catch {
+      return lastCoordsRef.current;
+    }
+  };
+
+  const rememberGpsFix = (latitude: number, longitude: number) => {
+    if (
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      (Math.abs(latitude) < 0.0001 && Math.abs(longitude) < 0.0001)
+    ) {
+      return;
+    }
+    lastCoordsRef.current = { latitude, longitude };
+  };
+
   const ingestGpsFix = (fix: {
     latitude: number;
     longitude: number;
@@ -228,17 +262,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     else setGpsQuality('searching');
     setGpsAccuracy(Math.round(fix.accuracyM));
 
-    const tripId = activeTripIdRef.current;
-    if (tripId && !lastCoordsRef.current) {
-      dbService.saveTrip({
-        id: tripId,
-        start_latitude: fix.latitude,
-        start_longitude: fix.longitude,
-      });
-    }
-
+    rememberGpsFix(fix.latitude, fix.longitude);
     const tick = trackerRef.current.ingestGps(fix, simulated);
-    lastCoordsRef.current = { latitude: fix.latitude, longitude: fix.longitude };
     applyTick(tick.speedKmh, tick.totalMeters, tick.state);
   };
 
@@ -360,8 +385,6 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       started_at: startedAt,
       status: 'active',
       trip_type: tripType,
-      start_latitude: lastCoordsRef.current?.latitude,
-      start_longitude: lastCoordsRef.current?.longitude,
     }));
 
     activeTripIdRef.current = tripId || null;
@@ -379,8 +402,22 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     stoppedSecondsRef.current = 0;
     trackerRef.current.reset(0);
     lastCoordsRef.current = null;
+    startCoordsRef.current = null;
     motionStateRef.current = 'stopped';
     setTripStatus('active');
+
+    const start = await readCurrentCoords();
+    if (start) {
+      startCoordsRef.current = start;
+      const id = activeTripIdRef.current;
+      if (id) {
+        await dbService.saveTrip({
+          id,
+          start_latitude: start.latitude,
+          start_longitude: start.longitude,
+        });
+      }
+    }
   };
 
   const pauseRide = () => {
@@ -392,6 +429,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const endRide = async (): Promise<number | null> => {
+    const end = await readCurrentCoords();
+
     stopSensors();
 
     try {
@@ -402,18 +441,21 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const endedAt = new Date().toISOString();
     const meters = trackerRef.current.getTotalMeters();
+    const start = startCoordsRef.current;
     const snapshot = {
       ended_at: endedAt,
       duration_seconds: durationSecondsRef.current,
       moving_seconds: movingSecondsRef.current,
       stopped_seconds: stoppedSecondsRef.current,
       distance_km: parseFloat((meters / 1000).toFixed(2)),
-      average_speed_kmh: movingSecondsRef.current > 0
+      average_speed_kmh: movingSecondsRef.current >= 12 && meters >= 40
         ? parseFloat(((meters / 1000) / (movingSecondsRef.current / 3600)).toFixed(1))
         : 0,
       max_speed_kmh: maxSpeedRef.current,
-      end_latitude: lastCoordsRef.current?.latitude,
-      end_longitude: lastCoordsRef.current?.longitude,
+      start_latitude: start?.latitude,
+      start_longitude: start?.longitude,
+      end_latitude: end?.latitude ?? lastCoordsRef.current?.latitude,
+      end_longitude: end?.longitude ?? lastCoordsRef.current?.longitude,
       status: 'completed' as const,
     };
 
@@ -462,6 +504,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     startedAtRef.current = recoverableTripData.startedAt || new Date().toISOString();
     trackerRef.current.reset(recoveredKm * 1000);
     lastCoordsRef.current = null;
+    startCoordsRef.current = null;
     motionStateRef.current = 'stopped';
     durationSecondsRef.current = recoverableTripData.durationSeconds || 0;
     movingSecondsRef.current = recoverableTripData.movingSeconds || 0;
@@ -501,6 +544,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsSpeedAlertActive(false);
     trackerRef.current.reset(0);
     lastCoordsRef.current = null;
+    startCoordsRef.current = null;
     motionStateRef.current = 'stopped';
     durationSecondsRef.current = 0;
     movingSecondsRef.current = 0;
