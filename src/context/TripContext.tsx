@@ -473,7 +473,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const bikes = await dbService.getBikes();
       if (bikes.length > 0 && meters > 0) {
         const activeBike = bikes[0];
-        const newOdo = parseFloat((activeBike.current_odometer + meters / 1000).toFixed(1));
+        const currentOdo = Number(activeBike.current_odometer || 0);
+        const newOdo = parseFloat((currentOdo + meters / 1000).toFixed(1));
         await dbService.saveBike({ id: activeBike.id, current_odometer: newOdo });
       }
     } catch (e) {

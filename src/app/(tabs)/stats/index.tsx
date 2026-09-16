@@ -40,6 +40,10 @@ export default function StatisticsScreen() {
 
   // Filter trips by selected period
   const filteredTrips = trips.filter((t) => {
+    // Exclude uncompleted active trips that recorded zero metrics
+    if (t.status === 'active' && (t.distance_km || 0) === 0 && (t.duration_seconds || 0) === 0) {
+      return false;
+    }
     if (period === 'lifetime') return true;
     const tripDate = new Date(t.started_at).getTime();
     const now = Date.now();

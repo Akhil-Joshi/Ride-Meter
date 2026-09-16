@@ -66,6 +66,11 @@ export default function HistoryScreen() {
   };
 
   const filteredTrips = trips.filter((t) => {
+    // Hide uncompleted placeholder active trips that recorded zero metrics
+    if (t.status === 'active' && (t.distance_km || 0) === 0 && (t.duration_seconds || 0) === 0) {
+      return false;
+    }
+
     const matchesSearch =
       (t.notes || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (t.trip_type || '').toLowerCase().includes(searchQuery.toLowerCase());

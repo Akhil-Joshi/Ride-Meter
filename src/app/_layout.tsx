@@ -42,7 +42,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     dbService
-      .initDatabase()
+      .ensureInitialized()
       .then(() => setIsDbReady(true))
       .catch((err) => {
         console.error('DB init failed:', err);

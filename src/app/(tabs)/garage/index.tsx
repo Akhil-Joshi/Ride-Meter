@@ -247,13 +247,13 @@ export default function GarageScreen() {
   // Calculate Real-World Fuel Economy (km/L or MPG)
   const calculateAvgEconomy = () => {
     if (fuelLogs.length >= 2) {
-      const sortedLogs = [...fuelLogs].sort((a, b) => a.odometer_km - b.odometer_km);
+      const sortedLogs = [...fuelLogs].sort((a, b) => Number(a.odometer_km || 0) - Number(b.odometer_km || 0));
       let totalDist = 0;
       let totalLiters = 0;
 
       for (let i = 1; i < sortedLogs.length; i++) {
-        const dist = sortedLogs[i].odometer_km - sortedLogs[i - 1].odometer_km;
-        const liters = sortedLogs[i].liters;
+        const dist = Number(sortedLogs[i].odometer_km || 0) - Number(sortedLogs[i - 1].odometer_km || 0);
+        const liters = Number(sortedLogs[i].liters || 0);
         if (dist > 0 && liters > 0) {
           totalDist += dist;
           totalLiters += liters;
@@ -271,9 +271,12 @@ export default function GarageScreen() {
 
     if (fuelLogs.length === 1 && activeBike) {
       const initialLog = fuelLogs[0];
-      const distTraveled = activeBike.current_odometer - initialLog.odometer_km;
-      if (distTraveled > 0 && initialLog.liters > 0) {
-        const economyKmL = distTraveled / initialLog.liters;
+      const bikeOdo = Number(activeBike.current_odometer || 0);
+      const logOdo = Number(initialLog.odometer_km || 0);
+      const logLiters = Number(initialLog.liters || 0);
+      const distTraveled = bikeOdo - logOdo;
+      if (distTraveled > 0 && logLiters > 0) {
+        const economyKmL = distTraveled / logLiters;
         if (settings.distanceUnit === 'mi') {
           return `${(economyKmL * 2.35215).toFixed(1)} MPG`;
         }
