@@ -1,18 +1,18 @@
-import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 import {
+  Bike,
+  FuelLog,
   INITIAL_BIKES,
-  INITIAL_TRIPS,
   INITIAL_FUEL_LOGS,
   INITIAL_MAINTENANCE,
-  Bike,
-  Trip,
-  FuelLog,
+  INITIAL_TRIPS,
   Maintenance,
-} from '../utils/mockData';
+  Trip,
+} from "../utils/mockData";
 
 function toId(value: unknown): number {
-  if (typeof value === 'bigint') return Number(value);
+  if (typeof value === "bigint") return Number(value);
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
@@ -25,17 +25,17 @@ function coordOrNull(value: unknown): number | null {
 }
 
 const ASYNC_KEYS = {
-  BIKES: '@ridemeter_bikes',
-  TRIPS: '@ridemeter_trips',
-  TRIP_POINTS: '@ridemeter_trip_points',
-  FUEL: '@ridemeter_fuel',
-  MAINTENANCE: '@ridemeter_maintenance',
-  SETTINGS: '@ridemeter_settings',
+  BIKES: "@ridemeter_bikes",
+  TRIPS: "@ridemeter_trips",
+  TRIP_POINTS: "@ridemeter_trip_points",
+  FUEL: "@ridemeter_fuel",
+  MAINTENANCE: "@ridemeter_maintenance",
+  SETTINGS: "@ridemeter_settings",
 };
 
 export class DatabaseService {
   private static instance: DatabaseService;
-  private isNative: boolean = Platform.OS !== 'web';
+  private isNative: boolean = Platform.OS !== "web";
   private sqliteDb: any = null;
   private initPromise: Promise<void> | null = null;
 
@@ -60,14 +60,17 @@ export class DatabaseService {
     this.initPromise = (async () => {
       if (this.isNative) {
         try {
-          const SQLite = require('expo-sqlite');
-          this.sqliteDb = await SQLite.openDatabaseAsync('ridemeter.db');
-          const { CREATE_TABLES_SQL } = require('./schema');
+          const SQLite = require("expo-sqlite");
+          this.sqliteDb = await SQLite.openDatabaseAsync("ridemeter.db");
+          const { CREATE_TABLES_SQL } = require("./schema");
           await this.sqliteDb.execAsync(CREATE_TABLES_SQL);
           await this.syncAsyncStorageToSqliteIfEmpty();
           await this.seedInitialDataIfEmpty();
         } catch (err) {
-          console.warn('SQLite init failed; keeping existing file and using AsyncStorage fallback:', err);
+          console.warn(
+            "SQLite init failed; keeping existing file and using AsyncStorage fallback:",
+            err,
+          );
           this.isNative = false;
           await this.seedWebStorageIfEmpty();
         }
@@ -82,7 +85,9 @@ export class DatabaseService {
     if (!this.sqliteDb) return;
     try {
       // 1. Sync Bikes from AsyncStorage if SQLite bikes table is empty
-      const bikeCountRes = await this.sqliteDb.getAllAsync('SELECT COUNT(*) as count FROM bikes;');
+      const bikeCountRes = await this.sqliteDb.getAllAsync(
+        "SELECT COUNT(*) as count FROM bikes;",
+      );
       if (bikeCountRes && bikeCountRes[0]?.count === 0) {
         const asyncBikes = await AsyncStorage.getItem(ASYNC_KEYS.BIKES);
         if (asyncBikes) {
@@ -93,22 +98,24 @@ export class DatabaseService {
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
               [
                 toId(bike.id) || Date.now(),
-                bike.name || 'My Motorcycle',
-                bike.registration_number || '',
-                bike.make || '',
-                bike.model || '',
+                bike.name || "My Motorcycle",
+                bike.registration_number || "",
+                bike.make || "",
+                bike.model || "",
                 Number(bike.year || 2024),
                 Number(bike.initial_odometer || 0),
                 Number(bike.current_odometer || 0),
                 bike.created_at || new Date().toISOString(),
-              ]
+              ],
             );
           }
         }
       }
 
       // 2. Sync Trips from AsyncStorage if SQLite trips table is empty
-      const tripCountRes = await this.sqliteDb.getAllAsync('SELECT COUNT(*) as count FROM trips;');
+      const tripCountRes = await this.sqliteDb.getAllAsync(
+        "SELECT COUNT(*) as count FROM trips;",
+      );
       if (tripCountRes && tripCountRes[0]?.count === 0) {
         const asyncTrips = await AsyncStorage.getItem(ASYNC_KEYS.TRIPS);
         if (asyncTrips) {
@@ -120,7 +127,9 @@ export class DatabaseService {
       }
 
       // 3. Sync Fuel Logs from AsyncStorage if SQLite fuel_logs table is empty
-      const fuelCountRes = await this.sqliteDb.getAllAsync('SELECT COUNT(*) as count FROM fuel_logs;');
+      const fuelCountRes = await this.sqliteDb.getAllAsync(
+        "SELECT COUNT(*) as count FROM fuel_logs;",
+      );
       if (fuelCountRes && fuelCountRes[0]?.count === 0) {
         const asyncFuel = await AsyncStorage.getItem(ASYNC_KEYS.FUEL);
         if (asyncFuel) {
@@ -136,16 +145,18 @@ export class DatabaseService {
                 Number(fuel.cost || 0),
                 Number(fuel.price_per_liter || 0),
                 fuel.is_full_tank ? 1 : 0,
-                fuel.notes || '',
+                fuel.notes || "",
                 fuel.filled_at || new Date().toISOString(),
-              ]
+              ],
             );
           }
         }
       }
 
       // 4. Sync Maintenance Logs from AsyncStorage if SQLite maintenance table is empty
-      const maintCountRes = await this.sqliteDb.getAllAsync('SELECT COUNT(*) as count FROM maintenance;');
+      const maintCountRes = await this.sqliteDb.getAllAsync(
+        "SELECT COUNT(*) as count FROM maintenance;",
+      );
       if (maintCountRes && maintCountRes[0]?.count === 0) {
         const asyncMaint = await AsyncStorage.getItem(ASYNC_KEYS.MAINTENANCE);
         if (asyncMaint) {
@@ -156,20 +167,20 @@ export class DatabaseService {
                VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
               [
                 maint.bike_id || 1,
-                maint.type || 'General Service',
-                maint.description || '',
+                maint.type || "General Service",
+                maint.description || "",
                 Number(maint.odometer_km || 0),
                 Number(maint.cost || 0),
                 Number(maint.next_service_km || 0),
                 maint.service_date || new Date().toISOString(),
-                maint.notes || '',
-              ]
+                maint.notes || "",
+              ],
             );
           }
         }
       }
     } catch (e) {
-      console.warn('Sync AsyncStorage to SQLite failed:', e);
+      console.warn("Sync AsyncStorage to SQLite failed:", e);
     }
   }
 
@@ -190,9 +201,9 @@ export class DatabaseService {
               Number(f.cost || 0),
               Number(f.price_per_liter || 0),
               f.is_full_tank ? 1 : 0,
-              f.notes || '',
+              f.notes || "",
               f.filled_at || new Date().toISOString(),
-            ]
+            ],
           );
         } else {
           await this.sqliteDb.runAsync(
@@ -205,16 +216,18 @@ export class DatabaseService {
               Number(f.cost || 0),
               Number(f.price_per_liter || 0),
               f.is_full_tank ? 1 : 0,
-              f.notes || '',
+              f.notes || "",
               f.filled_at || new Date().toISOString(),
-            ]
+            ],
           );
         }
-      } catch { }
+      } catch {}
     }
   }
 
-  private async syncMaintenanceLogsToSqlite(logs: Maintenance[]): Promise<void> {
+  private async syncMaintenanceLogsToSqlite(
+    logs: Maintenance[],
+  ): Promise<void> {
     if (!this.sqliteDb) return;
     for (const m of logs) {
       try {
@@ -226,14 +239,14 @@ export class DatabaseService {
             [
               id,
               m.bike_id || 1,
-              m.type || 'General Service',
-              m.description || '',
+              m.type || "General Service",
+              m.description || "",
               Number(m.odometer_km || 0),
               Number(m.cost || 0),
               Number(m.next_service_km || 0),
               m.service_date || new Date().toISOString(),
-              m.notes || '',
-            ]
+              m.notes || "",
+            ],
           );
         } else {
           await this.sqliteDb.runAsync(
@@ -241,24 +254,26 @@ export class DatabaseService {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
             [
               m.bike_id || 1,
-              m.type || 'General Service',
-              m.description || '',
+              m.type || "General Service",
+              m.description || "",
               Number(m.odometer_km || 0),
               Number(m.cost || 0),
               Number(m.next_service_km || 0),
               m.service_date || new Date().toISOString(),
-              m.notes || '',
-            ]
+              m.notes || "",
+            ],
           );
         }
-      } catch { }
+      } catch {}
     }
   }
 
   private async seedInitialDataIfEmpty(): Promise<void> {
     if (!this.sqliteDb) return;
     try {
-      const bikes = await this.sqliteDb.getAllAsync('SELECT COUNT(*) as count FROM bikes;');
+      const bikes = await this.sqliteDb.getAllAsync(
+        "SELECT COUNT(*) as count FROM bikes;",
+      );
       if (bikes && bikes[0]?.count === 0) {
         for (const bike of INITIAL_BIKES) {
           await this.sqliteDb.runAsync(
@@ -266,20 +281,23 @@ export class DatabaseService {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
             [
               bike.id,
-              bike.name || 'My Motorcycle',
-              bike.registration_number || '',
-              bike.make || '',
-              bike.model || '',
+              bike.name || "My Motorcycle",
+              bike.registration_number || "",
+              bike.make || "",
+              bike.model || "",
               bike.year || 2024,
               bike.initial_odometer || 0,
               bike.current_odometer || 0,
               bike.created_at || new Date().toISOString(),
-            ]
+            ],
           );
         }
       }
     } catch (e) {
-      console.warn('Seed SQLite failed, switching to AsyncStorage fallback:', e);
+      console.warn(
+        "Seed SQLite failed, switching to AsyncStorage fallback:",
+        e,
+      );
       this.isNative = false;
       await this.seedWebStorageIfEmpty();
     }
@@ -288,10 +306,22 @@ export class DatabaseService {
   private async seedWebStorageIfEmpty(): Promise<void> {
     const existingBikes = await AsyncStorage.getItem(ASYNC_KEYS.BIKES);
     if (!existingBikes) {
-      await AsyncStorage.setItem(ASYNC_KEYS.BIKES, JSON.stringify(INITIAL_BIKES));
-      await AsyncStorage.setItem(ASYNC_KEYS.TRIPS, JSON.stringify(INITIAL_TRIPS));
-      await AsyncStorage.setItem(ASYNC_KEYS.FUEL, JSON.stringify(INITIAL_FUEL_LOGS));
-      await AsyncStorage.setItem(ASYNC_KEYS.MAINTENANCE, JSON.stringify(INITIAL_MAINTENANCE));
+      await AsyncStorage.setItem(
+        ASYNC_KEYS.BIKES,
+        JSON.stringify(INITIAL_BIKES),
+      );
+      await AsyncStorage.setItem(
+        ASYNC_KEYS.TRIPS,
+        JSON.stringify(INITIAL_TRIPS),
+      );
+      await AsyncStorage.setItem(
+        ASYNC_KEYS.FUEL,
+        JSON.stringify(INITIAL_FUEL_LOGS),
+      );
+      await AsyncStorage.setItem(
+        ASYNC_KEYS.MAINTENANCE,
+        JSON.stringify(INITIAL_MAINTENANCE),
+      );
     }
   }
 
@@ -301,7 +331,9 @@ export class DatabaseService {
     let sqliteBikes: Bike[] = [];
     if (this.isNative && this.sqliteDb) {
       try {
-        const rows = await this.sqliteDb.getAllAsync('SELECT * FROM bikes ORDER BY id ASC;');
+        const rows = await this.sqliteDb.getAllAsync(
+          "SELECT * FROM bikes ORDER BY id ASC;",
+        );
         sqliteBikes = (rows as any[]).map((b) => ({
           ...b,
           id: toId(b.id),
@@ -310,7 +342,7 @@ export class DatabaseService {
           current_odometer: Number(b.current_odometer || 0),
         }));
       } catch (e) {
-        console.warn('Native getBikes failed, fallback to AsyncStorage:', e);
+        console.warn("Native getBikes failed, fallback to AsyncStorage:", e);
         this.isNative = false;
       }
     }
@@ -329,34 +361,57 @@ export class DatabaseService {
         }));
       }
     } catch (e) {
-      console.warn('AsyncStorage getBikes failed:', e);
+      console.warn("AsyncStorage getBikes failed:", e);
     }
 
-    const seenSignatures = new Set<string>();
+    const mergedBySignature = new Map<string, Bike>();
     const usedIds = new Set<number>();
-    const mergedBikes: Bike[] = [];
 
-    for (const b of sqliteBikes) {
-      const sig = `${b.name}_${b.registration_number}_${b.make}_${b.model}`;
-      if (!seenSignatures.has(sig)) {
-        seenSignatures.add(sig);
-        if (b.id) usedIds.add(b.id);
-        mergedBikes.push(b);
-      }
-    }
-
-    for (const b of asyncBikes) {
-      const sig = `${b.name}_${b.registration_number}_${b.make}_${b.model}`;
-      if (!seenSignatures.has(sig)) {
-        seenSignatures.add(sig);
-        let validId = b.id;
+    const mergeBike = (existing: Bike | undefined, incoming: Bike): Bike => {
+      if (!existing) {
+        let validId = incoming.id;
         if (!validId || usedIds.has(validId)) {
           validId = Date.now() + Math.floor(Math.random() * 1000);
         }
         usedIds.add(validId);
-        mergedBikes.push({ ...b, id: validId });
+        return { ...incoming, id: validId };
       }
+
+      const merged: Bike = {
+        ...existing,
+        ...incoming,
+        id: toId(existing.id) || toId(incoming.id) || Date.now(),
+        name: incoming.name || existing.name,
+        registration_number:
+          incoming.registration_number || existing.registration_number,
+        make: incoming.make || existing.make,
+        model: incoming.model || existing.model,
+        year: Number(incoming.year || existing.year || 2024),
+        initial_odometer: Math.max(
+          Number(existing.initial_odometer || 0),
+          Number(incoming.initial_odometer || 0),
+        ),
+        current_odometer: Math.max(
+          Number(existing.current_odometer || 0),
+          Number(incoming.current_odometer || 0),
+        ),
+        created_at:
+          incoming.created_at ||
+          existing.created_at ||
+          new Date().toISOString(),
+      };
+
+      if (merged.id) usedIds.add(merged.id);
+      return merged;
+    };
+
+    for (const bike of [...sqliteBikes, ...asyncBikes]) {
+      const sig = `${bike.name}_${bike.registration_number}_${bike.make}_${bike.model}`;
+      const existing = mergedBySignature.get(sig);
+      mergedBySignature.set(sig, mergeBike(existing, bike));
     }
+
+    const mergedBikes = Array.from(mergedBySignature.values());
 
     if (mergedBikes.length === 0) {
       return INITIAL_BIKES;
@@ -373,21 +428,23 @@ export class DatabaseService {
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
               [
                 bike.id,
-                bike.name || 'My Motorcycle',
-                bike.registration_number || '',
-                bike.make || '',
-                bike.model || '',
+                bike.name || "My Motorcycle",
+                bike.registration_number || "",
+                bike.make || "",
+                bike.model || "",
                 Number(bike.year || 2024),
                 Number(bike.initial_odometer || 0),
                 Number(bike.current_odometer || 0),
                 bike.created_at || new Date().toISOString(),
-              ]
+              ],
             )
             .catch(() => {});
         }
       }
     }
-    AsyncStorage.setItem(ASYNC_KEYS.BIKES, JSON.stringify(mergedBikes)).catch(() => {});
+    AsyncStorage.setItem(ASYNC_KEYS.BIKES, JSON.stringify(mergedBikes)).catch(
+      () => {},
+    );
 
     return mergedBikes;
   }
@@ -400,15 +457,22 @@ export class DatabaseService {
     if (this.isNative && this.sqliteDb) {
       try {
         if (bikeId) {
-          const existingList = await this.sqliteDb.getAllAsync('SELECT * FROM bikes WHERE id=?;', [bikeId]);
+          const existingList = await this.sqliteDb.getAllAsync(
+            "SELECT * FROM bikes WHERE id=?;",
+            [bikeId],
+          );
           if (existingList && existingList.length > 0) {
             const existing = existingList[0];
-            const updatedName = bike.name ?? existing.name ?? 'My Motorcycle';
-            const updatedReg = bike.registration_number ?? existing.registration_number ?? '';
-            const updatedMake = bike.make ?? existing.make ?? '';
-            const updatedModel = bike.model ?? existing.model ?? '';
+            const updatedName = bike.name ?? existing.name ?? "My Motorcycle";
+            const updatedReg =
+              bike.registration_number ?? existing.registration_number ?? "";
+            const updatedMake = bike.make ?? existing.make ?? "";
+            const updatedModel = bike.model ?? existing.model ?? "";
             const updatedYear = bike.year ?? existing.year ?? 2024;
-            const updatedOdo = bike.current_odometer !== undefined ? Number(bike.current_odometer) : Number(existing.current_odometer || 0);
+            const updatedOdo =
+              bike.current_odometer !== undefined
+                ? Number(bike.current_odometer)
+                : Number(existing.current_odometer || 0);
 
             await this.sqliteDb.runAsync(
               `UPDATE bikes SET name=?, registration_number=?, make=?, model=?, year=?, current_odometer=? WHERE id=?;`,
@@ -420,7 +484,7 @@ export class DatabaseService {
                 Number(updatedYear),
                 Number(updatedOdo),
                 bikeId,
-              ]
+              ],
             );
           }
           savedId = bikeId;
@@ -429,20 +493,20 @@ export class DatabaseService {
             `INSERT INTO bikes (name, registration_number, make, model, year, initial_odometer, current_odometer, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
             [
-              bike.name || 'My Motorcycle',
-              bike.registration_number || '',
-              bike.make || '',
-              bike.model || '',
+              bike.name || "My Motorcycle",
+              bike.registration_number || "",
+              bike.make || "",
+              bike.model || "",
               bike.year || new Date().getFullYear(),
               bike.initial_odometer || 0,
               bike.current_odometer || bike.initial_odometer || 0,
               new Date().toISOString(),
-            ]
+            ],
           );
           savedId = toId(res.lastInsertRowId);
         }
       } catch (e) {
-        console.warn('Native saveBike failed, fallback to AsyncStorage:', e);
+        console.warn("Native saveBike failed, fallback to AsyncStorage:", e);
         this.isNative = false;
       }
     }
@@ -459,10 +523,10 @@ export class DatabaseService {
       } else {
         bikes.push({
           id: savedId,
-          name: bike.name || 'My Motorcycle',
-          registration_number: bike.registration_number || '',
-          make: bike.make || '',
-          model: bike.model || '',
+          name: bike.name || "My Motorcycle",
+          registration_number: bike.registration_number || "",
+          make: bike.make || "",
+          model: bike.model || "",
           year: bike.year || new Date().getFullYear(),
           initial_odometer: bike.initial_odometer || 0,
           current_odometer: bike.current_odometer || bike.initial_odometer || 0,
@@ -471,7 +535,7 @@ export class DatabaseService {
       }
       await AsyncStorage.setItem(ASYNC_KEYS.BIKES, JSON.stringify(bikes));
     } catch (e) {
-      console.warn('AsyncStorage saveBike backup failed:', e);
+      console.warn("AsyncStorage saveBike backup failed:", e);
     }
 
     return savedId;
@@ -483,7 +547,9 @@ export class DatabaseService {
     let sqliteTrips: Trip[] = [];
     if (this.isNative && this.sqliteDb) {
       try {
-        const rows = await this.sqliteDb.getAllAsync('SELECT * FROM trips ORDER BY started_at DESC;');
+        const rows = await this.sqliteDb.getAllAsync(
+          "SELECT * FROM trips ORDER BY started_at DESC;",
+        );
         sqliteTrips = (rows as any[]).map((t) => ({
           ...t,
           id: toId(t.id),
@@ -501,7 +567,7 @@ export class DatabaseService {
           is_favorite: Number(t.is_favorite || 0),
         }));
       } catch (e) {
-        console.warn('Native getTrips failed, fallback to AsyncStorage:', e);
+        console.warn("Native getTrips failed, fallback to AsyncStorage:", e);
         this.isNative = false;
       }
     }
@@ -529,45 +595,83 @@ export class DatabaseService {
         }));
       }
     } catch (e) {
-      console.warn('AsyncStorage getTrips failed:', e);
+      console.warn("AsyncStorage getTrips failed:", e);
     }
 
-    const seenSignatures = new Set<string>();
-    const usedIds = new Set<number>();
-    const mergedTrips: Trip[] = [];
-
-    for (const t of sqliteTrips) {
-      const sig = `${t.started_at}_${t.distance_km}_${t.duration_seconds}`;
-      if (!seenSignatures.has(sig)) {
-        seenSignatures.add(sig);
-        if (t.id) usedIds.add(t.id);
-        mergedTrips.push(t);
-      }
-    }
+    const tripsMap = new Map<string, Trip>();
 
     for (const t of asyncTrips) {
-      const sig = `${t.started_at}_${t.distance_km}_${t.duration_seconds}`;
-      if (!seenSignatures.has(sig)) {
-        seenSignatures.add(sig);
-        let validId = t.id;
-        if (!validId || usedIds.has(validId)) {
-          validId = Date.now() + Math.floor(Math.random() * 1000);
-        }
-        usedIds.add(validId);
-        mergedTrips.push({ ...t, id: validId });
-      }
+      const key =
+        t.started_at && t.started_at.trim()
+          ? t.started_at.trim()
+          : `id_${t.id}`;
+      tripsMap.set(key, t);
     }
 
-    mergedTrips.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+    for (const t of sqliteTrips) {
+      const key =
+        t.started_at && t.started_at.trim()
+          ? t.started_at.trim()
+          : `id_${t.id}`;
+      const targetId = toId(t.id);
+      for (const [existingKey, existingTrip] of Array.from(
+        tripsMap.entries(),
+      )) {
+        if (
+          (targetId > 0 && toId(existingTrip.id) === targetId) ||
+          (t.started_at && existingTrip.started_at === t.started_at)
+        ) {
+          tripsMap.delete(existingKey);
+        }
+      }
+      tripsMap.set(key, t);
+    }
+
+    let mergedTrips = Array.from(tripsMap.values());
+
+    // Clean up stale active placeholder trips if a completed trip exists with the same started_at
+    mergedTrips = mergedTrips.filter((t, _idx, arr) => {
+      if (
+        t.status === "active" &&
+        t.distance_km === 0 &&
+        t.duration_seconds === 0
+      ) {
+        const hasCompletedMatch = arr.some(
+          (other) =>
+            other.status === "completed" && other.started_at === t.started_at,
+        );
+        if (hasCompletedMatch) {
+          if (this.sqliteDb && t.id) {
+            this.sqliteDb
+              .runAsync("DELETE FROM trips WHERE id=?;", [t.id])
+              .catch(() => {});
+          }
+          return false;
+        }
+      }
+      return true;
+    });
+
+    mergedTrips.sort(
+      (a, b) =>
+        new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
+    );
 
     if (this.sqliteDb && mergedTrips.length > sqliteTrips.length) {
       for (const trip of mergedTrips) {
-        if (!sqliteTrips.some((st) => toId(st.id) === trip.id)) {
+        if (
+          !sqliteTrips.some(
+            (st) =>
+              toId(st.id) === trip.id || st.started_at === trip.started_at,
+          )
+        ) {
           this.insertTripSqlite(trip, trip.id).catch(() => {});
         }
       }
     }
-    AsyncStorage.setItem(ASYNC_KEYS.TRIPS, JSON.stringify(mergedTrips)).catch(() => {});
+    AsyncStorage.setItem(ASYNC_KEYS.TRIPS, JSON.stringify(mergedTrips)).catch(
+      () => {},
+    );
 
     return mergedTrips;
   }
@@ -579,7 +683,10 @@ export class DatabaseService {
 
     if (this.isNative && this.sqliteDb) {
       try {
-        const row = await this.sqliteDb.getFirstAsync('SELECT * FROM trips WHERE id = ?;', [wanted]);
+        const row = await this.sqliteDb.getFirstAsync(
+          "SELECT * FROM trips WHERE id = ?;",
+          [wanted],
+        );
         if (row) {
           const t = row as any;
           return {
@@ -600,7 +707,7 @@ export class DatabaseService {
           };
         }
       } catch (e) {
-        console.warn('Native getTripById failed, fallback to AsyncStorage:', e);
+        console.warn("Native getTripById failed, fallback to AsyncStorage:", e);
         this.isNative = false;
       }
     }
@@ -609,7 +716,10 @@ export class DatabaseService {
     return trips.find((t) => toId(t.id) === wanted) || null;
   }
 
-  private async insertTripSqlite(trip: Partial<Trip>, explicitId?: number): Promise<number> {
+  private async insertTripSqlite(
+    trip: Partial<Trip>,
+    explicitId?: number,
+  ): Promise<number> {
     const createdAt = new Date().toISOString();
     const cols = `bike_id, started_at, ended_at, duration_seconds, moving_seconds, stopped_seconds, distance_km, average_speed_kmh, max_speed_kmh, start_latitude, start_longitude, end_latitude, end_longitude, trip_type, notes, is_favorite, status, created_at`;
     const values = [
@@ -626,28 +736,30 @@ export class DatabaseService {
       coordOrNull(trip.start_longitude),
       coordOrNull(trip.end_latitude),
       coordOrNull(trip.end_longitude),
-      trip.trip_type || 'Personal',
-      trip.notes || '',
+      trip.trip_type || "Personal",
+      trip.notes || "",
       trip.is_favorite ? 1 : 0,
-      trip.status || 'active',
+      trip.status || "active",
       createdAt,
     ];
 
     if (explicitId) {
       await this.sqliteDb.runAsync(
         `INSERT INTO trips (id, ${cols}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-        [explicitId, ...values]
+        [explicitId, ...values],
       );
       return explicitId;
     }
 
     const res = await this.sqliteDb.runAsync(
       `INSERT INTO trips (${cols}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-      values
+      values,
     );
     let insertId = toId(res.lastInsertRowId);
     if (!insertId) {
-      const row = await this.sqliteDb.getFirstAsync('SELECT last_insert_rowid() AS id;');
+      const row = await this.sqliteDb.getFirstAsync(
+        "SELECT last_insert_rowid() AS id;",
+      );
       insertId = toId(row?.id);
     }
     return insertId;
@@ -661,25 +773,64 @@ export class DatabaseService {
     if (this.isNative && this.sqliteDb) {
       try {
         if (tripId) {
-          const existing = await this.sqliteDb.getFirstAsync('SELECT * FROM trips WHERE id=?;', [tripId]);
+          const existing = await this.sqliteDb.getFirstAsync(
+            "SELECT * FROM trips WHERE id=?;",
+            [tripId],
+          );
           if (existing) {
-            const bikeId = trip.bike_id !== undefined ? Number(trip.bike_id) : Number(existing.bike_id || 1);
+            const bikeId =
+              trip.bike_id !== undefined
+                ? Number(trip.bike_id)
+                : Number(existing.bike_id || 1);
             const startedAt = trip.started_at || existing.started_at;
-            const endedAt = trip.ended_at !== undefined ? trip.ended_at : existing.ended_at;
-            const dur = trip.duration_seconds !== undefined ? Number(trip.duration_seconds) : Number(existing.duration_seconds || 0);
-            const mov = trip.moving_seconds !== undefined ? Number(trip.moving_seconds) : Number(existing.moving_seconds || 0);
-            const stp = trip.stopped_seconds !== undefined ? Number(trip.stopped_seconds) : Number(existing.stopped_seconds || 0);
-            const dist = trip.distance_km !== undefined ? Number(trip.distance_km) : Number(existing.distance_km || 0);
-            const avgSpd = trip.average_speed_kmh !== undefined ? Number(trip.average_speed_kmh) : Number(existing.average_speed_kmh || 0);
-            const maxSpd = trip.max_speed_kmh !== undefined ? Number(trip.max_speed_kmh) : Number(existing.max_speed_kmh || 0);
-            const startLat = coordOrNull(trip.start_latitude) ?? coordOrNull(existing.start_latitude);
-            const startLon = coordOrNull(trip.start_longitude) ?? coordOrNull(existing.start_longitude);
-            const endLat = coordOrNull(trip.end_latitude) ?? coordOrNull(existing.end_latitude);
-            const endLon = coordOrNull(trip.end_longitude) ?? coordOrNull(existing.end_longitude);
-            const tripType = trip.trip_type || existing.trip_type || 'Personal';
-            const notes = trip.notes !== undefined ? trip.notes : (existing.notes || '');
-            const isFav = trip.is_favorite !== undefined ? (trip.is_favorite ? 1 : 0) : Number(existing.is_favorite || 0);
-            const status = trip.status || existing.status || 'completed';
+            const endedAt =
+              trip.ended_at !== undefined ? trip.ended_at : existing.ended_at;
+            const dur =
+              trip.duration_seconds !== undefined
+                ? Number(trip.duration_seconds)
+                : Number(existing.duration_seconds || 0);
+            const mov =
+              trip.moving_seconds !== undefined
+                ? Number(trip.moving_seconds)
+                : Number(existing.moving_seconds || 0);
+            const stp =
+              trip.stopped_seconds !== undefined
+                ? Number(trip.stopped_seconds)
+                : Number(existing.stopped_seconds || 0);
+            const dist =
+              trip.distance_km !== undefined
+                ? Number(trip.distance_km)
+                : Number(existing.distance_km || 0);
+            const avgSpd =
+              trip.average_speed_kmh !== undefined
+                ? Number(trip.average_speed_kmh)
+                : Number(existing.average_speed_kmh || 0);
+            const maxSpd =
+              trip.max_speed_kmh !== undefined
+                ? Number(trip.max_speed_kmh)
+                : Number(existing.max_speed_kmh || 0);
+            const startLat =
+              coordOrNull(trip.start_latitude) ??
+              coordOrNull(existing.start_latitude);
+            const startLon =
+              coordOrNull(trip.start_longitude) ??
+              coordOrNull(existing.start_longitude);
+            const endLat =
+              coordOrNull(trip.end_latitude) ??
+              coordOrNull(existing.end_latitude);
+            const endLon =
+              coordOrNull(trip.end_longitude) ??
+              coordOrNull(existing.end_longitude);
+            const tripType = trip.trip_type || existing.trip_type || "Personal";
+            const notes =
+              trip.notes !== undefined ? trip.notes : existing.notes || "";
+            const isFav =
+              trip.is_favorite !== undefined
+                ? trip.is_favorite
+                  ? 1
+                  : 0
+                : Number(existing.is_favorite || 0);
+            const status = trip.status || existing.status || "completed";
 
             await this.sqliteDb.runAsync(
               `UPDATE trips SET bike_id=?, started_at=?, ended_at=?, duration_seconds=?, moving_seconds=?, stopped_seconds=?, distance_km=?, average_speed_kmh=?, max_speed_kmh=?, start_latitude=?, start_longitude=?, end_latitude=?, end_longitude=?, trip_type=?, notes=?, is_favorite=?, status=? WHERE id=?;`,
@@ -702,7 +853,7 @@ export class DatabaseService {
                 isFav,
                 status,
                 tripId,
-              ]
+              ],
             );
             savedId = tripId;
           } else {
@@ -712,7 +863,7 @@ export class DatabaseService {
           savedId = await this.insertTripSqlite(trip);
         }
       } catch (e) {
-        console.warn('Native saveTrip failed, fallback to AsyncStorage:', e);
+        console.warn("Native saveTrip failed, fallback to AsyncStorage:", e);
         this.isNative = false;
       }
     }
@@ -728,7 +879,7 @@ export class DatabaseService {
         id: savedId,
         bike_id: trip.bike_id || 1,
         started_at: trip.started_at || new Date().toISOString(),
-        ended_at: trip.ended_at || '',
+        ended_at: trip.ended_at || "",
         duration_seconds: trip.duration_seconds || 0,
         moving_seconds: trip.moving_seconds || 0,
         stopped_seconds: trip.stopped_seconds || 0,
@@ -739,10 +890,10 @@ export class DatabaseService {
         start_longitude: coordOrNull(trip.start_longitude) ?? 0,
         end_latitude: coordOrNull(trip.end_latitude) ?? 0,
         end_longitude: coordOrNull(trip.end_longitude) ?? 0,
-        trip_type: trip.trip_type || 'Personal',
-        notes: trip.notes || '',
+        trip_type: trip.trip_type || "Personal",
+        notes: trip.notes || "",
         is_favorite: trip.is_favorite ? 1 : 0,
-        status: trip.status || 'active',
+        status: trip.status || "active",
         created_at: new Date().toISOString(),
       };
       if (idx !== -1) {
@@ -752,7 +903,7 @@ export class DatabaseService {
       }
       await AsyncStorage.setItem(ASYNC_KEYS.TRIPS, JSON.stringify(trips));
     } catch (e) {
-      console.warn('AsyncStorage saveTrip backup failed:', e);
+      console.warn("AsyncStorage saveTrip backup failed:", e);
     }
 
     return savedId;
@@ -765,9 +916,9 @@ export class DatabaseService {
 
     if (this.isNative && this.sqliteDb) {
       try {
-        await this.sqliteDb.runAsync('DELETE FROM trips WHERE id=?;', [tripId]);
+        await this.sqliteDb.runAsync("DELETE FROM trips WHERE id=?;", [tripId]);
       } catch (e) {
-        console.warn('Native deleteTrip failed, fallback to AsyncStorage:', e);
+        console.warn("Native deleteTrip failed, fallback to AsyncStorage:", e);
         this.isNative = false;
       }
     }
@@ -780,7 +931,7 @@ export class DatabaseService {
         await AsyncStorage.setItem(ASYNC_KEYS.TRIPS, JSON.stringify(filtered));
       }
     } catch (e) {
-      console.warn('AsyncStorage deleteTrip failed:', e);
+      console.warn("AsyncStorage deleteTrip failed:", e);
     }
   }
 
@@ -790,7 +941,9 @@ export class DatabaseService {
     let sqliteLogs: FuelLog[] = [];
     if (this.isNative && this.sqliteDb) {
       try {
-        const rows = await this.sqliteDb.getAllAsync('SELECT * FROM fuel_logs ORDER BY filled_at DESC;');
+        const rows = await this.sqliteDb.getAllAsync(
+          "SELECT * FROM fuel_logs ORDER BY filled_at DESC;",
+        );
         sqliteLogs = (rows as any[]).map((f) => ({
           ...f,
           id: toId(f.id),
@@ -802,7 +955,7 @@ export class DatabaseService {
           is_full_tank: Number(f.is_full_tank || 0),
         }));
       } catch (e) {
-        console.warn('Native getFuelLogs failed, fallback to AsyncStorage:', e);
+        console.warn("Native getFuelLogs failed, fallback to AsyncStorage:", e);
         this.isNative = false;
       }
     }
@@ -824,7 +977,7 @@ export class DatabaseService {
         }));
       }
     } catch (e) {
-      console.warn('AsyncStorage getFuelLogs failed:', e);
+      console.warn("AsyncStorage getFuelLogs failed:", e);
     }
 
     const seenSignatures = new Set<string>();
@@ -853,12 +1006,17 @@ export class DatabaseService {
       }
     }
 
-    mergedLogs.sort((a, b) => new Date(b.filled_at).getTime() - new Date(a.filled_at).getTime());
+    mergedLogs.sort(
+      (a, b) =>
+        new Date(b.filled_at).getTime() - new Date(a.filled_at).getTime(),
+    );
 
     if (this.sqliteDb && mergedLogs.length > sqliteLogs.length) {
       this.syncFuelLogsToSqlite(mergedLogs).catch(() => {});
     }
-    AsyncStorage.setItem(ASYNC_KEYS.FUEL, JSON.stringify(mergedLogs)).catch(() => {});
+    AsyncStorage.setItem(ASYNC_KEYS.FUEL, JSON.stringify(mergedLogs)).catch(
+      () => {},
+    );
 
     return mergedLogs;
   }
@@ -867,7 +1025,9 @@ export class DatabaseService {
     await this.ensureInitialized();
     let newId = 0;
     const filledAt = fuel.filled_at || new Date().toISOString();
-    const pricePerLiter = fuel.price_per_liter || (fuel.cost && fuel.liters ? fuel.cost / fuel.liters : 0);
+    const pricePerLiter =
+      fuel.price_per_liter ||
+      (fuel.cost && fuel.liters ? fuel.cost / fuel.liters : 0);
 
     if (this.isNative && this.sqliteDb) {
       try {
@@ -881,13 +1041,13 @@ export class DatabaseService {
             fuel.cost || 0,
             pricePerLiter,
             fuel.is_full_tank ? 1 : 0,
-            fuel.notes || '',
+            fuel.notes || "",
             filledAt,
-          ]
+          ],
         );
         newId = toId(res.lastInsertRowId);
       } catch (e) {
-        console.warn('Native addFuelLog failed, fallback to AsyncStorage:', e);
+        console.warn("Native addFuelLog failed, fallback to AsyncStorage:", e);
         this.isNative = false;
       }
     }
@@ -907,16 +1067,21 @@ export class DatabaseService {
         cost: Number(fuel.cost || 0),
         price_per_liter: Number(pricePerLiter),
         is_full_tank: fuel.is_full_tank ? 1 : 0,
-        notes: fuel.notes || '',
+        notes: fuel.notes || "",
         filled_at: filledAt,
       };
       const sig = `${filledAt}_${fuel.odometer_km}_${fuel.liters}_${fuel.cost}`;
-      if (!logs.some((l) => `${l.filled_at}_${l.odometer_km}_${l.liters}_${l.cost}` === sig)) {
+      if (
+        !logs.some(
+          (l) =>
+            `${l.filled_at}_${l.odometer_km}_${l.liters}_${l.cost}` === sig,
+        )
+      ) {
         logs.unshift(newLog);
         await AsyncStorage.setItem(ASYNC_KEYS.FUEL, JSON.stringify(logs));
       }
     } catch (e) {
-      console.warn('AsyncStorage addFuelLog backup failed:', e);
+      console.warn("AsyncStorage addFuelLog backup failed:", e);
     }
 
     return newId;
@@ -927,7 +1092,9 @@ export class DatabaseService {
     const fuelId = toId(fuel.id);
     if (!fuelId) return;
 
-    const pricePerLiter = fuel.price_per_liter || (fuel.cost && fuel.liters ? fuel.cost / fuel.liters : 0);
+    const pricePerLiter =
+      fuel.price_per_liter ||
+      (fuel.cost && fuel.liters ? fuel.cost / fuel.liters : 0);
 
     if (this.isNative && this.sqliteDb) {
       try {
@@ -938,12 +1105,12 @@ export class DatabaseService {
             fuel.cost || 0,
             pricePerLiter,
             fuel.odometer_km || 0,
-            fuel.notes || '',
+            fuel.notes || "",
             fuelId,
-          ]
+          ],
         );
       } catch (e) {
-        console.warn('Native updateFuelLog failed:', e);
+        console.warn("Native updateFuelLog failed:", e);
       }
     }
 
@@ -958,7 +1125,7 @@ export class DatabaseService {
         }
       }
     } catch (e) {
-      console.warn('AsyncStorage updateFuelLog backup failed:', e);
+      console.warn("AsyncStorage updateFuelLog backup failed:", e);
     }
   }
 
@@ -969,9 +1136,11 @@ export class DatabaseService {
 
     if (this.isNative && this.sqliteDb) {
       try {
-        await this.sqliteDb.runAsync('DELETE FROM fuel_logs WHERE id=?;', [fuelId]);
+        await this.sqliteDb.runAsync("DELETE FROM fuel_logs WHERE id=?;", [
+          fuelId,
+        ]);
       } catch (e) {
-        console.warn('Native deleteFuelLog failed:', e);
+        console.warn("Native deleteFuelLog failed:", e);
       }
     }
 
@@ -983,7 +1152,7 @@ export class DatabaseService {
         await AsyncStorage.setItem(ASYNC_KEYS.FUEL, JSON.stringify(filtered));
       }
     } catch (e) {
-      console.warn('AsyncStorage deleteFuelLog failed:', e);
+      console.warn("AsyncStorage deleteFuelLog failed:", e);
     }
   }
 
@@ -993,7 +1162,9 @@ export class DatabaseService {
     let sqliteLogs: Maintenance[] = [];
     if (this.isNative && this.sqliteDb) {
       try {
-        const rows = await this.sqliteDb.getAllAsync('SELECT * FROM maintenance ORDER BY service_date DESC;');
+        const rows = await this.sqliteDb.getAllAsync(
+          "SELECT * FROM maintenance ORDER BY service_date DESC;",
+        );
         sqliteLogs = (rows as any[]).map((m) => ({
           ...m,
           id: toId(m.id),
@@ -1003,7 +1174,10 @@ export class DatabaseService {
           next_service_km: Number(m.next_service_km || 0),
         }));
       } catch (e) {
-        console.warn('Native getMaintenanceLogs failed, fallback to AsyncStorage:', e);
+        console.warn(
+          "Native getMaintenanceLogs failed, fallback to AsyncStorage:",
+          e,
+        );
         this.isNative = false;
       }
     }
@@ -1023,7 +1197,7 @@ export class DatabaseService {
         }));
       }
     } catch (e) {
-      console.warn('AsyncStorage getMaintenanceLogs failed:', e);
+      console.warn("AsyncStorage getMaintenanceLogs failed:", e);
     }
 
     const seenSignatures = new Set<string>();
@@ -1052,12 +1226,18 @@ export class DatabaseService {
       }
     }
 
-    mergedLogs.sort((a, b) => new Date(b.service_date).getTime() - new Date(a.service_date).getTime());
+    mergedLogs.sort(
+      (a, b) =>
+        new Date(b.service_date).getTime() - new Date(a.service_date).getTime(),
+    );
 
     if (this.sqliteDb && mergedLogs.length > sqliteLogs.length) {
       this.syncMaintenanceLogsToSqlite(mergedLogs).catch(() => {});
     }
-    AsyncStorage.setItem(ASYNC_KEYS.MAINTENANCE, JSON.stringify(mergedLogs)).catch(() => {});
+    AsyncStorage.setItem(
+      ASYNC_KEYS.MAINTENANCE,
+      JSON.stringify(mergedLogs),
+    ).catch(() => {});
 
     return mergedLogs;
   }
@@ -1074,18 +1254,21 @@ export class DatabaseService {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
           [
             maint.bike_id || 1,
-            maint.type || 'General Service',
-            maint.description || '',
+            maint.type || "General Service",
+            maint.description || "",
             maint.odometer_km || 0,
             maint.cost || 0,
             maint.next_service_km || 0,
             serviceDate,
-            maint.notes || '',
-          ]
+            maint.notes || "",
+          ],
         );
         newId = toId(res.lastInsertRowId);
       } catch (e) {
-        console.warn('Native addMaintenanceLog failed, fallback to AsyncStorage:', e);
+        console.warn(
+          "Native addMaintenanceLog failed, fallback to AsyncStorage:",
+          e,
+        );
         this.isNative = false;
       }
     }
@@ -1100,27 +1283,39 @@ export class DatabaseService {
       const newLog: Maintenance = {
         id: newId,
         bike_id: maint.bike_id || 1,
-        type: maint.type || 'General Service',
-        description: maint.description || '',
+        type: maint.type || "General Service",
+        description: maint.description || "",
         odometer_km: maint.odometer_km || 0,
         cost: maint.cost || 0,
-        next_service_km: maint.next_service_km || (maint.odometer_km ? maint.odometer_km + 2000 : 2000),
+        next_service_km:
+          maint.next_service_km ||
+          (maint.odometer_km ? maint.odometer_km + 2000 : 2000),
         service_date: serviceDate,
-        notes: maint.notes || '',
+        notes: maint.notes || "",
       };
       const sig = `${serviceDate}_${maint.odometer_km}_${maint.type}_${maint.cost}`;
-      if (!logs.some((l) => `${l.service_date}_${l.odometer_km}_${l.type}_${l.cost}` === sig)) {
+      if (
+        !logs.some(
+          (l) =>
+            `${l.service_date}_${l.odometer_km}_${l.type}_${l.cost}` === sig,
+        )
+      ) {
         logs.unshift(newLog);
-        await AsyncStorage.setItem(ASYNC_KEYS.MAINTENANCE, JSON.stringify(logs));
+        await AsyncStorage.setItem(
+          ASYNC_KEYS.MAINTENANCE,
+          JSON.stringify(logs),
+        );
       }
     } catch (e) {
-      console.warn('AsyncStorage addMaintenanceLog backup failed:', e);
+      console.warn("AsyncStorage addMaintenanceLog backup failed:", e);
     }
 
     return newId;
   }
 
-  public async updateMaintenanceLog(maint: Partial<Maintenance>): Promise<void> {
+  public async updateMaintenanceLog(
+    maint: Partial<Maintenance>,
+  ): Promise<void> {
     await this.ensureInitialized();
     const maintId = toId(maint.id);
     if (!maintId) return;
@@ -1130,17 +1325,17 @@ export class DatabaseService {
         await this.sqliteDb.runAsync(
           `UPDATE maintenance SET type=?, description=?, odometer_km=?, next_service_km=?, cost=?, notes=? WHERE id=?;`,
           [
-            maint.type || 'General Service',
-            maint.description || '',
+            maint.type || "General Service",
+            maint.description || "",
             maint.odometer_km || 0,
             maint.next_service_km || 0,
             maint.cost || 0,
-            maint.notes || '',
+            maint.notes || "",
             maintId,
-          ]
+          ],
         );
       } catch (e) {
-        console.warn('Native updateMaintenanceLog failed:', e);
+        console.warn("Native updateMaintenanceLog failed:", e);
       }
     }
 
@@ -1151,11 +1346,14 @@ export class DatabaseService {
         const idx = logs.findIndex((m) => toId(m.id) === maintId);
         if (idx !== -1) {
           logs[idx] = { ...logs[idx], ...maint, id: maintId };
-          await AsyncStorage.setItem(ASYNC_KEYS.MAINTENANCE, JSON.stringify(logs));
+          await AsyncStorage.setItem(
+            ASYNC_KEYS.MAINTENANCE,
+            JSON.stringify(logs),
+          );
         }
       }
     } catch (e) {
-      console.warn('AsyncStorage updateMaintenanceLog backup failed:', e);
+      console.warn("AsyncStorage updateMaintenanceLog backup failed:", e);
     }
   }
 
@@ -1166,9 +1364,11 @@ export class DatabaseService {
 
     if (this.isNative && this.sqliteDb) {
       try {
-        await this.sqliteDb.runAsync('DELETE FROM maintenance WHERE id=?;', [maintId]);
+        await this.sqliteDb.runAsync("DELETE FROM maintenance WHERE id=?;", [
+          maintId,
+        ]);
       } catch (e) {
-        console.warn('Native deleteMaintenanceLog failed:', e);
+        console.warn("Native deleteMaintenanceLog failed:", e);
       }
     }
 
@@ -1177,10 +1377,13 @@ export class DatabaseService {
       if (data) {
         const logs: Maintenance[] = JSON.parse(data);
         const filtered = logs.filter((m) => toId(m.id) !== maintId);
-        await AsyncStorage.setItem(ASYNC_KEYS.MAINTENANCE, JSON.stringify(filtered));
+        await AsyncStorage.setItem(
+          ASYNC_KEYS.MAINTENANCE,
+          JSON.stringify(filtered),
+        );
       }
     } catch (e) {
-      console.warn('AsyncStorage deleteMaintenanceLog failed:', e);
+      console.warn("AsyncStorage deleteMaintenanceLog failed:", e);
     }
   }
 
@@ -1197,7 +1400,7 @@ export class DatabaseService {
           DELETE FROM reminders;
         `);
       } catch (e) {
-        console.warn('Native clearAllData failed:', e);
+        console.warn("Native clearAllData failed:", e);
       }
     }
     await AsyncStorage.removeItem(ASYNC_KEYS.TRIPS);

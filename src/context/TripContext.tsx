@@ -219,14 +219,24 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [tripStatus, settings.simulatedRideMode]);
 
   const readCurrentCoords = async (): Promise<{ latitude: number; longitude: number } | null> => {
-    if (settingsRef.current.simulatedRideMode) {
+    if (settingsRef.current.simulatedRideMode || lastCoordsRef.current) {
       return lastCoordsRef.current;
     }
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return lastCoordsRef.current;
+
+      const lastKnown = await Location.getLastKnownPositionAsync();
+      if (lastKnown && lastKnown.coords) {
+        const { latitude, longitude } = lastKnown.coords;
+        if (Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) > 0.0001) {
+          lastCoordsRef.current = { latitude, longitude };
+          return { latitude, longitude };
+        }
+      }
+
       const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.BestForNavigation,
+        accuracy: Location.Accuracy.Balanced,
       });
       const { latitude, longitude } = pos.coords;
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
@@ -429,15 +439,13 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const endRide = async (): Promise<number | null> => {
-    const end = await readCurrentCoords();
+    const end = lastCoordsRef.current ?? (await readCurrentCoords());
 
     stopSensors();
 
-    try {
-      if (Platform.OS !== 'web') {
-        await deactivateKeepAwake();
-      }
-    } catch { }
+    if (Platform.OS !== 'web') {
+      deactivateKeepAwake().catch(() => {});
+    }
 
     const endedAt = new Date().toISOString();
     const meters = trackerRef.current.getTotalMeters();
@@ -482,7 +490,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setTripStatus('completed');
-    await AsyncStorage.removeItem(ACTIVE_TRIP_KEY);
+    AsyncStorage.removeItem(ACTIVE_TRIP_KEY).catch(() => {});
     return savedTripId || null;
   };
 
